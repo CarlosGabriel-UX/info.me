@@ -1,7 +1,12 @@
 import * as THREE from "three";
-import { OrbitControls } from "three/addons/OrbitControls.js";
-import { CSS2DRenderer, CSS2DObject } from "three/addons/CSS2DRenderer.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { PROFILE as P } from "./data.js";
+import { buildRoom, HEAD } from "./room.js";
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const $ = (id) => document.getElementById(id);
@@ -62,12 +67,21 @@ try {
 }
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setClearColor(0x000000, 1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
 
 const labelRenderer = new CSS2DRenderer({ element: $("labels") });
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x000000, 6, 16);
+scene.fog = new THREE.Fog(0x000000, 5, 14);
 const camera = new THREE.PerspectiveCamera(45, 1, 0.005, 200);
+
+// Pós-processamento: brilho (bloom) nas telas, LEDs e neurônios
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.55, 0.5, 0.55);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
 
 // ---------------------------------------------------------------------------
 // Texturas geradas
@@ -95,178 +109,10 @@ const DOT = radialTexture(32, [
   [1, 0],
 ]);
 
-// Código "digitando" no monitor
-const codeCanvas = document.createElement("canvas");
-codeCanvas.width = 1024;
-codeCanvas.height = 576;
-const codeCtx = codeCanvas.getContext("2d");
-const codeTex = new THREE.CanvasTexture(codeCanvas);
-codeTex.colorSpace = THREE.SRGBColorSpace;
-const codeColors = ["#38bdf8", "#a78bfa", "#f472b6", "#34d399", "#94a3b8", "#facc15", "#f43f5e"];
-const codeSegs = [];
-seed = 7;
-for (let i = 0; i < 16; i++) {
-  let x = 48 + [0, 40, 80, 40, 0, 40][i % 6];
-  const n = 1 + Math.floor(rand() * 3);
-  for (let j = 0; j < n; j++) {
-    const w = 50 + rand() * 190;
-    if (x + w > 980) break;
-    codeSegs.push({ x, y: 40 + i * 32, w, color: codeColors[Math.floor(rand() * codeColors.length)] });
-    x += w + 22;
-  }
-}
-let segIdx = 0;
-let segProg = 0;
-let cursorOn = true;
-function drawCode() {
-  codeCtx.fillStyle = "#06122a";
-  codeCtx.fillRect(0, 0, 1024, 576);
-  codeCtx.fillStyle = "rgba(148,163,184,0.25)";
-  for (let i = 0; i < 16; i++) codeCtx.fillRect(14, 40 + i * 32, 18, 12);
-  let cx = 48;
-  let cy = 40;
-  codeSegs.forEach((s, i) => {
-    const w = i < segIdx ? s.w : i === segIdx ? segProg : 0;
-    if (w <= 0) return;
-    codeCtx.fillStyle = s.color;
-    codeCtx.globalAlpha = 0.9;
-    codeCtx.fillRect(s.x, s.y, w, 14);
-    codeCtx.globalAlpha = 1;
-    if (i === segIdx) {
-      cx = s.x + w + 6;
-      cy = s.y;
-    }
-  });
-  if (cursorOn) {
-    codeCtx.fillStyle = "#e0f2fe";
-    codeCtx.fillRect(cx, cy - 4, 10, 22);
-  }
-  codeTex.needsUpdate = true;
-}
-function typeTick() {
-  if (segIdx >= codeSegs.length) {
-    segIdx = 0;
-    segProg = 0;
-  }
-  segProg = Math.min(codeSegs[segIdx].w, segProg + 14);
-  if (segProg >= codeSegs[segIdx].w) {
-    segIdx++;
-    segProg = 0;
-  }
-}
-if (reduceMotion) segIdx = codeSegs.length - 1;
-drawCode();
-
-// ---------------------------------------------------------------------------
-// Sala: personagem sentado no computador (visto de costas)
-// ---------------------------------------------------------------------------
-const room = new THREE.Group();
+// Sala com o personagem (assets/js/room.js)
+const R = buildRoom();
+const room = R.group;
 scene.add(room);
-const roomMats = [];
-const mat = (color, opts = {}) => {
-  const m = new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.1, transparent: true, ...opts });
-  roomMats.push(m);
-  return m;
-};
-const box = (w, h, d, m, x, y, z) => {
-  const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
-  o.position.set(x, y, z);
-  room.add(o);
-  return o;
-};
-function limb(a, b, r, m) {
-  const va = new THREE.Vector3(...a);
-  const vb = new THREE.Vector3(...b);
-  const o = new THREE.Mesh(new THREE.CapsuleGeometry(r, va.distanceTo(vb), 6, 12), m);
-  o.position.copy(va).add(vb).multiplyScalar(0.5);
-  o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vb.clone().sub(va).normalize());
-  room.add(o);
-  return o;
-}
-
-const floor = new THREE.Mesh(new THREE.CircleGeometry(9, 48), mat(0x06070a, { roughness: 1 }));
-floor.rotation.x = -Math.PI / 2;
-room.add(floor);
-
-const deskMat = mat(0x14161c);
-const darkMat = mat(0x0c0d11);
-box(3.0, 0.05, 1.0, deskMat, 0, 1.0, -1.15);
-[
-  [-1.4, -0.72],
-  [1.4, -0.72],
-  [-1.4, -1.6],
-  [1.4, -1.6],
-].forEach(([x, z]) => box(0.05, 1.0, 0.05, darkMat, x, 0.5, z));
-
-// Monitor
-box(1.5, 0.9, 0.05, darkMat, 0, 1.6, -1.45);
-const screen = new THREE.Mesh(
-  new THREE.PlaneGeometry(1.42, 0.8),
-  new THREE.MeshBasicMaterial({ map: codeTex, transparent: true, toneMapped: false })
-);
-roomMats.push(screen.material);
-screen.position.set(0, 1.6, -1.422);
-room.add(screen);
-box(0.07, 0.3, 0.07, darkMat, 0, 1.18, -1.48);
-box(0.42, 0.02, 0.25, darkMat, 0, 1.035, -1.45);
-box(0.75, 0.025, 0.22, mat(0x1a1d24), 0, 1.035, -0.92);
-const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.11, 20), mat(0x1c1f27));
-mug.position.set(0.95, 1.08, -1.05);
-room.add(mug);
-
-// Personagem
-const bodyMat = mat(0x1c1f28);
-const skinMat = mat(0x22252e);
-const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.42, 8, 16), bodyMat);
-torso.scale.set(1.3, 1, 0.8);
-torso.position.set(0, 1.08, 0.22);
-room.add(torso);
-limb([-0.26, 1.3, 0.22], [-0.32, 1.06, -0.08], 0.065, bodyMat);
-limb([-0.32, 1.06, -0.08], [-0.16, 1.07, -0.82], 0.055, bodyMat);
-limb([0.26, 1.3, 0.22], [0.32, 1.06, -0.08], 0.065, bodyMat);
-limb([0.32, 1.06, -0.08], [0.16, 1.07, -0.82], 0.055, bodyMat);
-limb([0, 1.38, 0.22], [0, 1.5, 0.2], 0.055, skinMat);
-limb([-0.12, 0.66, 0.1], [-0.13, 0.66, -0.3], 0.08, bodyMat);
-limb([0.12, 0.66, 0.1], [0.13, 0.66, -0.3], 0.08, bodyMat);
-
-const HEAD = new THREE.Vector3(0, 1.62, 0.2);
-const headMat = mat(0x22252e);
-const hairMat = mat(0x0b0c10);
-const head = new THREE.Mesh(new THREE.SphereGeometry(0.125, 32, 24), headMat);
-head.scale.set(1, 1.1, 1.05);
-head.position.copy(HEAD);
-room.add(head);
-const hair = new THREE.Mesh(new THREE.SphereGeometry(0.132, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.62), hairMat);
-hair.scale.set(1, 1.1, 1.08);
-hair.position.copy(HEAD).add(new THREE.Vector3(0, 0.008, 0.008));
-hair.rotation.x = 0.35;
-room.add(hair);
-[-1, 1].forEach((s) => {
-  const ear = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 8), skinMat);
-  ear.scale.set(0.6, 1.2, 1);
-  ear.position.set(s * 0.125, 1.61, 0.2);
-  room.add(ear);
-});
-
-// Cadeira
-const chairMat = mat(0x0d0e12);
-box(0.62, 0.06, 0.6, chairMat, 0, 0.58, 0.18);
-box(0.6, 0.62, 0.06, chairMat, 0, 0.98, 0.52);
-box(0.05, 0.5, 0.05, chairMat, 0, 0.3, 0.2);
-box(0.6, 0.03, 0.05, chairMat, 0, 0.05, 0.2);
-box(0.05, 0.03, 0.6, chairMat, 0, 0.05, 0.2);
-
-// Luz: o monitor ilumina a sala; luzes frias de contorno
-room.add(new THREE.AmbientLight(0x1b2a4a, 0.9));
-const screenLight = new THREE.PointLight(0x3b82f6, 3.2, 6, 1.6);
-screenLight.position.set(0, 1.6, -1.2);
-room.add(screenLight);
-const rim = new THREE.DirectionalLight(0x7dd3fc, 1.1);
-rim.position.set(0.8, 3, -2.5);
-room.add(rim);
-const backLight = new THREE.DirectionalLight(0x93c5fd, 0.35);
-backLight.position.set(-1, 2, 3);
-room.add(backLight);
 
 // ---------------------------------------------------------------------------
 // Mente: cérebro de partículas + mapa neural
@@ -694,13 +540,19 @@ const labelsEl = $("labels");
 let progress = 0;
 let finalDist = 17;
 
-const C0 = new THREE.Vector3(0.95, 1.95, 2.7);
-const L0 = new THREE.Vector3(0, 1.45, -1.1);
-const C1 = new THREE.Vector3(0, 1.7, 0.95);
-const C2 = HEAD.clone().add(new THREE.Vector3(0, 0.02, 0.3));
-const S0 = 0.03; // escala da mente quando ainda está dentro da cabeça
-const D0 = 0.3;
+const C0 = new THREE.Vector3(0.7, 1.45, 1.9);
+const L0 = new THREE.Vector3(-0.05, 1.12, -0.9);
+const C1 = new THREE.Vector3(0.05, 1.34, 0.72);
+const C2 = HEAD.clone().add(new THREE.Vector3(0, 0.02, 0.26));
+const S0 = 0.022; // escala da mente quando ainda está dentro da cabeça
+const D0 = 0.26;
 
+const par = new THREE.Vector2();
+const parTarget = new THREE.Vector2();
+window.addEventListener("pointermove", (e) => {
+  if (e.pointerType !== "mouse" || reduceMotion) return;
+  parTarget.set((e.clientX / window.innerWidth) * 2 - 1, -((e.clientY / window.innerHeight) * 2 - 1));
+});
 const camPos = new THREE.Vector3();
 const camTarget = new THREE.Vector3();
 function scriptedCamera(p, out, outTarget) {
@@ -734,10 +586,12 @@ function onResize() {
   camera.aspect = aspect;
   camera.updateProjectionMatrix();
   renderer.setSize(W, H, false);
+  composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  composer.setSize(W, H);
   labelRenderer.setSize(W, H);
   const halfH = Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * aspect);
   finalDist = Math.max(11.5, 4.6 / Math.tan(halfH) + 1.5);
-  C0.set(aspect < 1 ? 0.3 : 0.95, 1.95, aspect < 1 ? 3.3 : 2.7);
+  C0.set(aspect < 1 ? 0.35 : 0.7, aspect < 1 ? 1.5 : 1.45, aspect < 1 ? 2.6 : 1.9);
 }
 
 window.addEventListener("scroll", onScroll, { passive: true });
@@ -749,7 +603,6 @@ onScroll();
 // Loop
 // ---------------------------------------------------------------------------
 const clock = new THREE.Clock();
-let lastType = 0;
 let mindSpin = 0;
 const linkPulseColor = new THREE.Color("#e0f2fe");
 
@@ -769,16 +622,14 @@ function frame() {
   // Sala
   const roomOpacity = 1 - smooth(0.46, 0.56, p);
   room.visible = roomOpacity > 0.001;
-  roomMats.forEach((m) => (m.opacity = roomOpacity));
+  R.mats.forEach((m) => (m.opacity = roomOpacity));
   const headFade = 1 - smooth(0.34, 0.46, p);
-  headMat.opacity = hairMat.opacity = headFade * roomOpacity;
-  headMat.depthWrite = hairMat.depthWrite = headFade > 0.99;
-  if (room.visible && !reduceMotion && time - lastType > 0.045) {
-    lastType = time;
-    typeTick();
-    cursorOn = Math.floor(time * 2) % 2 === 0;
-    drawCode();
-  }
+  R.headMats.forEach((m) => {
+    m.opacity = headFade * roomOpacity;
+    m.depthWrite = headFade > 0.99;
+  });
+  if (room.visible) R.update(time, dt);
+  bloom.strength = lerp(0.6, 0.32, smooth(0.5, 0.8, p));
 
   // Mente
   const grow = smooth(0.46, 0.84, p);
@@ -802,6 +653,12 @@ function frame() {
     controls.update(dt);
   } else {
     scriptedCamera(p, camPos, camTarget);
+    // parallax sutil com o mouse na cena de abertura
+    par.x += (parTarget.x - par.x) * Math.min(1, dt * 3);
+    par.y += (parTarget.y - par.y) * Math.min(1, dt * 3);
+    const pk = 1 - smooth(0, 0.25, p);
+    camPos.x += par.x * 0.12 * pk;
+    camPos.y += par.y * 0.06 * pk;
     if (returnFrom) {
       returnFrom.t = Math.min(1, returnFrom.t + dt / 0.8);
       const k = smooth(0, 1, returnFrom.t);
@@ -879,7 +736,7 @@ function frame() {
   mapUi.classList.toggle("on", ui > 0.5);
   labelsEl.style.opacity = exploring ? 1 : smooth(0.62, 0.72, p);
 
-  renderer.render(scene, camera);
+  composer.render(dt);
   labelRenderer.render(scene, camera);
 }
 requestAnimationFrame(frame);
