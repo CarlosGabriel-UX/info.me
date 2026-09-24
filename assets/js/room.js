@@ -1,4 +1,4 @@
-// Cena de abertura: o quarto, a mesa e o personagem sentado no computador.
+// Cena de abertura: o quarto, a mesa e o personagem (um holograma) sentado no computador.
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
@@ -757,6 +757,96 @@ export function buildRoom(avatar = {}) {
     addClump(Math.PI + PART - 0.3 - i * 0.34, 0.74 + (rand() - 0.5) * 0.06, 0.04, 0.015, 0.075, new THREE.Vector3(-0.3, -0.6, 1), 0.0);
   }
 
+  // --- Holograma -----------------------------------------------------------
+  // O personagem é projetado: brilho nas bordas (fresnel), faixas de varredura
+  // subindo e os vértices como pontos de luz, no mesmo estilo dos neurônios.
+  const HOLO = new THREE.Color(0x38bdf8);
+  const holoUniforms = { uTime: { value: 0 } };
+  function holoMaterial() {
+    const m = new THREE.ShaderMaterial({
+      uniforms: { uTime: holoUniforms.uTime, uColor: { value: HOLO }, uOpacity: { value: 1 } },
+      vertexShader: `
+        varying vec3 vN;
+        varying vec3 vV;
+        varying float vY;
+        void main() {
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vN = normalize(normalMatrix * normal);
+          vV = normalize(-mv.xyz);
+          vY = (modelMatrix * vec4(position, 1.0)).y;
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: `
+        uniform float uTime;
+        uniform vec3 uColor;
+        uniform float uOpacity;
+        varying vec3 vN;
+        varying vec3 vV;
+        varying float vY;
+        void main() {
+          float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.2);
+          float lines = 0.75 + 0.25 * sin(vY * 520.0 - uTime * 6.0);
+          float band = smoothstep(0.08, 0.0, abs(fract(vY * 0.9 - uTime * 0.25) - 0.5));
+          float flick = 0.92 + 0.08 * sin(uTime * 37.0) * sin(uTime * 13.0);
+          float a = (0.05 + 0.75 * f + 0.25 * band) * lines * flick * uOpacity;
+          gl_FragColor = vec4(uColor * (0.6 + 0.6 * f) * a, a);
+        }`,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    // main.js controla opacity/depthWrite de todos os materiais da sala;
+    // aqui a opacidade vai para o uniform e o holograma nunca escreve profundidade.
+    Object.defineProperty(m, "opacity", { get: () => m.uniforms.uOpacity.value, set: (v) => (m.uniforms.uOpacity.value = v) });
+    Object.defineProperty(m, "depthWrite", { get: () => false, set: () => {} });
+    return m;
+  }
+  const holoBody = holoMaterial();
+  const holoHead = holoMaterial();
+  const ptsMat = () =>
+    new THREE.PointsMaterial({
+      size: 0.0055,
+      map: GLOW,
+      color: 0x7dd3fc,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+  const ptsBody = ptsMat();
+  const ptsHead = ptsMat();
+  mats.push(holoBody, ptsBody);
+  headMats.push(holoHead, ptsHead);
+  const charMats = new Set([shirt, skin, pants, shoeMat, soleMat, neckMat, headMat, hairMat, eyeWhite, irisMat, pupilMat, lipMat, shine]);
+  const headSet = new Set(headMats);
+  // malhas densas ganham só parte dos vértices como pontos, para não estourar o brilho
+  const thin = (geo) => {
+    const pos = geo.attributes.position;
+    const step = pos.count > 1500 ? 3 : pos.count > 150 ? 2 : 1;
+    if (step === 1) return geo;
+    const out = [];
+    for (let i = 0; i < pos.count; i += step) out.push(pos.getX(i), pos.getY(i), pos.getZ(i));
+    return new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(out, 3));
+  };
+  const swap = [];
+  group.traverse((o) => o.isMesh && charMats.has(o.material) && swap.push(o));
+  swap.forEach((o) => {
+    const inHead = headSet.has(o.material);
+    // olhos e boca ficam só como pontos, para o rosto não virar um emaranhado de anéis
+    const small = o.material === irisMat || o.material === pupilMat || o.material === shine || o.material === lipMat;
+    const eye = o.material === eyeWhite;
+    o.material = inHead ? holoHead : holoBody;
+    o.visible = !small;
+    if (!small && !eye) {
+      o.add(new THREE.Points(thin(o.geometry), inHead ? ptsHead : ptsBody));
+    }
+  });
+  // base do projetor: anel de luz no chão, embaixo da cadeira
+  const ring = add(new THREE.RingGeometry(0.42, 0.44, 64), basic(0x38bdf8, { opacity: 0.8, side: THREE.DoubleSide }), 0, 0.006, 0.05);
+  ring.rotation.x = -Math.PI / 2;
+  const ringGlow = add(new THREE.CircleGeometry(0.5, 64), basic(0xffffff, { map: GLOW, color: 0x0ea5e9, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }), 0, 0.004, 0.05);
+  ringGlow.rotation.x = -Math.PI / 2;
+
   // --- Luz geral ----------------------------------------------------------
   // luz suave no rosto, como o reflexo branco da tela
   const faceLight = new THREE.PointLight(0xdfe6ff, 1.1, 1.6, 1.4);
@@ -816,6 +906,7 @@ export function buildRoom(avatar = {}) {
   topo.draw();
 
   function update(time, dt) {
+    holoUniforms.uTime.value = time;
     if (!reduce) {
       // respiração e pequenos movimentos de cabeça
       torsoPivot.scale.y = 1 + 0.012 * Math.sin(time * 1.6);
