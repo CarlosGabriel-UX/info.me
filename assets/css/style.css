@@ -1,0 +1,194 @@
+:root {
+  --bg: #000;
+  --fg: #e5e7eb;
+  --muted: #9ca3af;
+  --line: #1f2937;
+  --accent: #38bdf8;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Jornada com scroll ---------- */
+#journey {
+  position: relative;
+  height: 600vh;
+}
+
+.stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+}
+
+#scene,
+#neural {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#neural {
+  opacity: 0;
+  will-change: opacity, transform;
+}
+
+.glow-pulse { animation: glow 4s ease-in-out infinite; }
+@keyframes glow {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}
+
+.intro {
+  position: absolute;
+  top: 9vh;
+  left: 0;
+  right: 0;
+  text-align: center;
+  pointer-events: none;
+  padding: 0 16px;
+}
+.intro .hello {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 14px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.intro h1 {
+  margin: 6px 0 4px;
+  font-size: clamp(40px, 8vw, 88px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  background: linear-gradient(90deg, #e0f2fe, #38bdf8 60%, #a78bfa);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.intro .role { margin: 0; color: var(--muted); font-size: clamp(15px, 2vw, 18px); }
+
+.scroll-hint {
+  position: absolute;
+  bottom: 4vh;
+  left: 0;
+  right: 0;
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  padding: 0 16px;
+}
+.scroll-hint .arrow { font-size: 20px; animation: bob 1.6s ease-in-out infinite; }
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(6px); }
+}
+
+.neural-caption {
+  position: absolute;
+  bottom: 3vh;
+  left: 0;
+  right: 0;
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  opacity: 0;
+  pointer-events: none;
+  padding: 0 16px;
+}
+
+#tooltip {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(10, 12, 18, 0.92);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+  font-size: 13px;
+  line-height: 1.4;
+  max-width: 240px;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.15s, transform 0.15s;
+}
+#tooltip.show { opacity: 1; transform: translateY(0); }
+#tooltip strong { display: block; font-size: 14px; color: #fff; }
+#tooltip .cat { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+#tooltip .meta { color: var(--muted); }
+
+/* ---------- Lista de detalhes ---------- */
+#details {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 96px 16px 64px;
+}
+#details h2 { font-size: clamp(26px, 4vw, 36px); margin: 0 0 32px; letter-spacing: -0.02em; }
+#details h3 {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 14px;
+}
+.columns { display: grid; grid-template-columns: 1fr 1.4fr; gap: 40px; }
+@media (max-width: 760px) { .columns { grid-template-columns: 1fr; } }
+
+.cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.cards li {
+  border: 1px solid var(--line);
+  border-left: 3px solid #facc15;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #07080b;
+}
+.cards li strong { display: block; }
+.cards li span { color: var(--muted); font-size: 14px; }
+
+.skill-group { margin-bottom: 18px; }
+.skill-group h4 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.chips li {
+  font-size: 13px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #07080b;
+}
+
+footer {
+  border-top: 1px solid #111;
+  text-align: center;
+  color: #4b5563;
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 24px 16px 32px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glow-pulse, .scroll-hint .arrow { animation: none; }
+}
