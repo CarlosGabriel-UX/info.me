@@ -3,117 +3,80 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>info.me</title>
-  <meta name="description" content="Entre na minha mente: um mapa neural das minhas skills e certificações.">
+  <title>Carlos Gabriel · info.me</title>
+  <meta name="description" content="Entre na minha mente: um mapa neural 3D das minhas certificações e skills em redes, segurança e suporte de TI.">
   <meta name="theme-color" content="#000000">
   <link rel="stylesheet" href="assets/css/style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./assets/vendor/three/three.module.min.js",
+        "three/addons/": "./assets/vendor/three/"
+      }
+    }
+  </script>
 </head>
 <body>
   <main>
-    <!-- Seção com scroll "preso": a cena dá zoom até o cérebro e revela o mapa neural -->
+    <!-- Scroll "preso": a câmera entra na cabeça do personagem e o cérebro vira o mapa neural 3D -->
     <section id="journey" aria-label="Entrando na mente">
-      <div class="stage">
-        <svg id="scene" viewBox="0 -100 1200 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-          <defs>
-            <radialGradient id="screenGlow" cx="50%" cy="45%" r="55%">
-              <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.45"/>
-              <stop offset="45%" stop-color="#1d4ed8" stop-opacity="0.15"/>
-              <stop offset="100%" stop-color="#000" stop-opacity="0"/>
-            </radialGradient>
-            <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#7dd3fc" stop-opacity="0.9"/>
-              <stop offset="100%" stop-color="#7dd3fc" stop-opacity="0"/>
-            </linearGradient>
-            <radialGradient id="brainGlow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stop-color="#60a5fa" stop-opacity="0.9"/>
-              <stop offset="100%" stop-color="#60a5fa" stop-opacity="0"/>
-            </radialGradient>
-            <clipPath id="headClip"><circle cx="600" cy="378" r="56"/></clipPath>
-            <path id="brainShape" d="M180 420C120 330 150 200 260 150C330 80 450 60 540 90C620 50 740 70 800 140C890 170 930 270 900 350C940 430 880 520 790 520C740 580 640 590 580 550C520 600 420 600 370 560C280 590 190 530 180 420Z"/>
-          </defs>
-
-          <g id="world">
-            <rect x="-2000" y="-2000" width="5200" height="4800" fill="#000"/>
-            <ellipse cx="600" cy="300" rx="520" ry="360" fill="url(#screenGlow)" class="glow-pulse"/>
-
-            <!-- Monitor -->
-            <g>
-              <rect x="408" y="168" width="384" height="244" rx="10" fill="#0b0d12" stroke="#1f2937" stroke-width="3"/>
-              <rect x="422" y="182" width="356" height="216" rx="4" fill="#07142b"/>
-              <g id="code" transform="translate(438 198)"></g>
-              <rect x="585" y="412" width="30" height="34" fill="#0b0d12"/>
-              <ellipse cx="600" cy="450" rx="70" ry="7" fill="#0b0d12"/>
-            </g>
-
-            <!-- Mesa -->
-            <rect x="220" y="452" width="760" height="16" rx="3" fill="#111318"/>
-            <rect x="220" y="452" width="760" height="2" fill="#38bdf8" opacity="0.25"/>
-            <rect x="250" y="468" width="14" height="230" fill="#0c0e12"/>
-            <rect x="936" y="468" width="14" height="230" fill="#0c0e12"/>
-            <!-- Caneca e teclado -->
-            <rect x="820" y="424" width="30" height="28" rx="4" fill="#15171d"/>
-            <path d="M850 431c14 0 14 16 0 16" fill="none" stroke="#15171d" stroke-width="5"/>
-
-            <!-- Personagem (de costas) -->
-            <g id="person">
-              <!-- braços -->
-              <path d="M488 520C452 500 450 470 470 452L520 452C505 470 510 492 530 505Z" fill="#14161c"/>
-              <path d="M712 520C748 500 750 470 730 452L680 452C695 470 690 492 670 505Z" fill="#14161c"/>
-              <!-- tronco -->
-              <path d="M505 700C498 600 490 520 520 470C545 448 655 448 680 470C710 520 702 600 695 700Z" fill="#16181f"/>
-              <path d="M520 470C545 448 655 448 680 470" fill="none" stroke="url(#rim)" stroke-width="3" opacity="0.8"/>
-              <!-- pescoço -->
-              <rect x="582" y="420" width="36" height="40" rx="10" fill="#1a1c23"/>
-              <!-- cabeça -->
-              <circle cx="600" cy="378" r="56" fill="#1a1c23"/>
-              <!-- cabelo -->
-              <path d="M544 372C540 318 580 312 600 312C640 312 662 330 656 380C650 350 630 336 600 338C572 338 552 350 544 372Z" fill="#0d0e12"/>
-              <path d="M548 360C556 330 580 322 600 322C624 322 646 332 652 358" fill="none" stroke="url(#rim)" stroke-width="2.5" opacity="0.9"/>
-              <!-- orelhas -->
-              <ellipse cx="543" cy="388" rx="7" ry="13" fill="#1a1c23"/>
-              <ellipse cx="657" cy="388" rx="7" ry="13" fill="#1a1c23"/>
-
-              <!-- cérebro dentro da cabeça (aparece durante o zoom) -->
-              <g id="brainInHead" clip-path="url(#headClip)" opacity="0">
-                <circle cx="600" cy="378" r="56" fill="#020617"/>
-                <circle cx="600" cy="378" r="46" fill="url(#brainGlow)" opacity="0.35"/>
-                <g transform="translate(600 378) scale(0.085) translate(-540 -330)">
-                  <use href="#brainShape" fill="none" stroke="#7dd3fc" stroke-width="6"/>
-                  <path d="M300 250C360 200 420 260 480 220M560 160C600 240 680 200 720 260M320 420C380 380 440 460 520 400M600 420C650 360 720 440 800 380M430 130C440 200 400 260 420 330" fill="none" stroke="#7dd3fc" stroke-width="4" opacity="0.7"/>
-                </g>
-              </g>
-            </g>
-
-            <!-- Cadeira (encosto na frente do personagem) -->
-            <path d="M470 560C470 540 480 530 500 530L700 530C720 530 730 540 730 560L722 690C720 704 710 712 696 712L504 712C490 712 480 704 478 690Z" fill="#0c0d11" stroke="#1e293b" stroke-width="2"/>
-            <rect x="590" y="712" width="20" height="60" fill="#0a0b0e"/>
-            <rect x="500" y="770" width="200" height="10" rx="5" fill="#0a0b0e"/>
-          </g>
-        </svg>
-
-        <canvas id="neural" aria-hidden="true"></canvas>
-        <div id="tooltip" role="status" aria-live="polite"></div>
+      <div class="stage" id="stage">
+        <canvas id="gl" aria-hidden="true"></canvas>
+        <div id="labels" aria-hidden="true"></div>
 
         <header class="intro" id="intro">
           <p class="hello">Olá, eu sou</p>
-          <h1 id="name">Carlos</h1>
+          <h1 id="name"></h1>
           <p class="role" id="role"></p>
         </header>
         <p class="scroll-hint" id="scrollHint"><span id="tagline"></span><span class="arrow" aria-hidden="true">↓</span></p>
-        <p class="neural-caption" id="neuralCaption">Passe o mouse (ou toque) nos neurônios</p>
+
+        <!-- Interface do mapa -->
+        <div class="map-ui" id="mapUi">
+          <button class="btn primary" id="exploreBtn" type="button">Explorar em 3D</button>
+          <p class="map-hint" id="mapHint">Clique num neurônio para ver os detalhes</p>
+        </div>
+
+        <div class="explore-bar" id="exploreBar">
+          <label class="search">
+            <span class="sr-only">Buscar no mapa</span>
+            <input id="search" type="search" placeholder="Buscar skill ou certificado" list="searchList" autocomplete="off">
+            <datalist id="searchList"></datalist>
+          </label>
+          <button class="btn" id="resetBtn" type="button" title="Voltar à visão geral">Visão geral</button>
+          <button class="btn" id="exitBtn" type="button" title="Sair do modo 3D (Esc)">Sair ✕</button>
+        </div>
+        <p class="controls-hint" id="controlsHint">Arraste para girar · role ou pince para zoom · botão direito ou dois dedos para mover</p>
+
+        <aside class="panel" id="panel" aria-live="polite" hidden>
+          <button class="panel-close" id="panelClose" type="button" aria-label="Fechar">✕</button>
+          <p class="panel-cat" id="panelCat"></p>
+          <h2 class="panel-title" id="panelTitle"></h2>
+          <p class="panel-status" id="panelStatus"></p>
+          <p class="panel-detail" id="panelDetail"></p>
+          <h3 class="panel-sub" id="panelLinksTitle">Conexões</h3>
+          <ul class="panel-links" id="panelLinks"></ul>
+        </aside>
+
+        <div class="fallback" id="fallback" hidden>
+          <p>Seu navegador não suporta WebGL, então o mapa 3D não pode ser exibido. O conteúdo completo está logo abaixo.</p>
+        </div>
       </div>
     </section>
 
     <!-- Lista acessível do mesmo conteúdo -->
     <section id="details" aria-labelledby="details-title">
       <h2 id="details-title">O que tem aqui dentro</h2>
+      <p class="summary" id="summary"></p>
       <div class="columns">
         <div>
-          <h3>Certificações</h3>
+          <h3>Formação</h3>
+          <ul id="eduList" class="cards"></ul>
+          <h3>Certificados</h3>
           <ul id="certList" class="cards"></ul>
         </div>
         <div>
-          <h3>Skills</h3>
+          <h3>Conhecimentos</h3>
           <div id="skillGroups"></div>
         </div>
       </div>
@@ -121,10 +84,9 @@
   </main>
 
   <footer>
-    <p>info.me</p>
+    <p><span id="footName"></span> · <a id="linkedin" href="#" target="_blank" rel="noopener">LinkedIn</a></p>
   </footer>
 
-  <script src="assets/js/data.js"></script>
-  <script src="assets/js/main.js"></script>
+  <script type="module" src="assets/js/main.js"></script>
 </body>
 </html>

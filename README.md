@@ -1,10 +1,10 @@
 # info.me
 
-Site pessoal: um personagem sentado no computador, num fundo preto. Ao rolar a página, a câmera entra na cabeça dele e revela um mapa neural com as skills e certificações.
+Site pessoal em 3D: um personagem sentado no computador, num fundo preto. Ao rolar a página, a câmera entra na cabeça dele, o cérebro se expande e vira um mapa neural 3D com formação, certificados e conhecimentos. No botão **Explorar em 3D** dá para girar, dar zoom e mover o mapa, buscar itens e clicar num neurônio para ver os detalhes e o motivo de cada conexão.
 
 ## Rodar localmente
 
-É HTML, CSS e JavaScript puro, sem build. Abra o `index.html` no navegador, ou sirva a pasta:
+É HTML, CSS e JavaScript puro (módulos ES), sem build. Como usa módulos, precisa ser servido por HTTP (abrir o arquivo direto não funciona):
 
 ```bash
 python3 -m http.server 8000
@@ -15,16 +15,17 @@ python3 -m http.server 8000
 
 Tudo que aparece no site está em [`assets/js/data.js`](assets/js/data.js):
 
-- `name`, `role`, `tagline`: textos da abertura.
-- `categories`: as regiões do cérebro (cor e posição).
-- `skills`: cada skill vira um neurônio ligado à sua categoria.
-- `certifications`: cada certificação vira um neurônio amarelo, com instituição e ano.
+- `name`, `role`, `summary`, `linkedin`: textos da abertura e do rodapé.
+- `categories`: as regiões do cérebro (cor e posição 3D).
+- `nodes`: cada item (formação, certificado, skill) vira um neurônio ligado à sua região.
+- `links`: conexões extras entre neurônios, cada uma com o motivo que aparece no painel.
 
 ## Estrutura
 
-- `index.html`: cena em SVG (personagem, monitor, mesa) e o canvas do mapa neural.
+- `index.html`: estrutura da página e interface do modo explorar.
 - `assets/css/style.css`: estilos.
-- `assets/js/main.js`: animação de scroll (zoom na cabeça), mapa neural em canvas, hover/toque e a lista acessível no fim da página.
+- `assets/js/main.js`: cena 3D (three.js), câmera guiada pelo scroll, mapa neural, controles de órbita, busca, painel de detalhes e a lista acessível no fim da página.
+- `assets/vendor/three/`: three.js r169 (licença MIT) incluído no repositório, sem depender de CDN.
 
 ## Deploy
 
