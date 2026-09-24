@@ -540,8 +540,9 @@ const labelsEl = $("labels");
 let progress = 0;
 let finalDist = 17;
 
-const C0 = new THREE.Vector3(1.0, 1.45, 1.65);
-const L0 = new THREE.Vector3(-0.05, 1.12, -0.9);
+// abertura: de lado e à frente, para ver o rosto; depois a câmera contorna o personagem até ficar atrás da cabeça
+const C0 = new THREE.Vector3(-1.6, 1.3, -0.7);
+const L0 = new THREE.Vector3(0.15, 1.14, -0.3);
 const C1 = new THREE.Vector3(0.3, 1.36, 0.75);
 const C2 = HEAD.clone().add(new THREE.Vector3(0, 0.03, 0.34));
 const S0 = 0.03; // escala da mente quando ainda está dentro da cabeça
@@ -557,7 +558,13 @@ const camPos = new THREE.Vector3();
 const camTarget = new THREE.Vector3();
 function scriptedCamera(p, out, outTarget) {
   if (p < 0.3) {
-    out.lerpVectors(C0, C1, smooth(0, 0.3, p));
+    // arco em volta da cabeça (não atravessa o personagem)
+    const t = smooth(0, 0.3, p);
+    const a0 = Math.atan2(C0.x - HEAD.x, C0.z - HEAD.z);
+    const a1 = Math.atan2(C1.x - HEAD.x, C1.z - HEAD.z);
+    const r = lerp(Math.hypot(C0.x - HEAD.x, C0.z - HEAD.z), Math.hypot(C1.x - HEAD.x, C1.z - HEAD.z), t);
+    const a = lerp(a0, a1, t);
+    out.set(HEAD.x + Math.sin(a) * r, lerp(C0.y, C1.y, t), HEAD.z + Math.cos(a) * r);
     outTarget.lerpVectors(L0, HEAD, smooth(0.05, 0.3, p));
   } else if (p < 0.46) {
     out.lerpVectors(C1, C2, smooth(0.3, 0.46, p));
@@ -591,10 +598,12 @@ function onResize() {
   labelRenderer.setSize(W, H);
   const halfH = Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * aspect);
   finalDist = Math.max(11.5, 4.6 / Math.tan(halfH) + 1.5);
-  C0.set(aspect < 1 ? 0.55 : 1.0, aspect < 1 ? 1.5 : 1.45, aspect < 1 ? 2.5 : 1.65);
+  if (aspect < 1) C0.set(-1.9, 1.4, -1.0);
+  else C0.set(-1.6, 1.3, -0.7);
 }
 
 window.addEventListener("scroll", onScroll, { passive: true });
+
 window.addEventListener("resize", onResize);
 onResize();
 onScroll();
