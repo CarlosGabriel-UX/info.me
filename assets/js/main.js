@@ -110,7 +110,7 @@ const DOT = radialTexture(32, [
 ]);
 
 // Sala com o personagem (assets/js/room.js)
-const R = buildRoom();
+const R = buildRoom(P.avatar);
 const room = R.group;
 scene.add(room);
 
@@ -540,12 +540,12 @@ const labelsEl = $("labels");
 let progress = 0;
 let finalDist = 17;
 
-const C0 = new THREE.Vector3(0.7, 1.45, 1.9);
+const C0 = new THREE.Vector3(1.0, 1.45, 1.65);
 const L0 = new THREE.Vector3(-0.05, 1.12, -0.9);
-const C1 = new THREE.Vector3(0.05, 1.34, 0.72);
-const C2 = HEAD.clone().add(new THREE.Vector3(0, 0.02, 0.26));
-const S0 = 0.022; // escala da mente quando ainda está dentro da cabeça
-const D0 = 0.26;
+const C1 = new THREE.Vector3(0.3, 1.36, 0.75);
+const C2 = HEAD.clone().add(new THREE.Vector3(0, 0.03, 0.34));
+const S0 = 0.03; // escala da mente quando ainda está dentro da cabeça
+const D0 = 0.34;
 
 const par = new THREE.Vector2();
 const parTarget = new THREE.Vector2();
@@ -591,7 +591,7 @@ function onResize() {
   labelRenderer.setSize(W, H);
   const halfH = Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * aspect);
   finalDist = Math.max(11.5, 4.6 / Math.tan(halfH) + 1.5);
-  C0.set(aspect < 1 ? 0.35 : 0.7, aspect < 1 ? 1.5 : 1.45, aspect < 1 ? 2.6 : 1.9);
+  C0.set(aspect < 1 ? 0.55 : 1.0, aspect < 1 ? 1.5 : 1.45, aspect < 1 ? 2.5 : 1.65);
 }
 
 window.addEventListener("scroll", onScroll, { passive: true });

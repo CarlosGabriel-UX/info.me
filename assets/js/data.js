@@ -11,6 +11,15 @@ export const PROFILE = {
   location: "São Paulo/SP",
   linkedin: "https://linkedin.com/in/carlos-gabriel-368aa32b6",
   tagline: "Role para baixo e entre na minha mente.",
+  // Cores do avatar 3D (estilo avatar do Xbox). Ajuste para ficar parecido com você.
+  avatar: {
+    skin: "#c68b63",
+    hair: "#2b1b12",
+    eyes: "#4a2c17",
+    hoodie: "#1d4ed8",
+    pants: "#1f2937",
+    shoes: "#f1f5f9",
+  },
   summary:
     "Estudante do Técnico em Segurança Cibernética no Senac, com duas qualificações técnicas concluídas e trilha Cisco CCNA em andamento. Buscando estágio ou primeira oportunidade em Suporte de TI (N1/N2) e Sistemas.",
 
