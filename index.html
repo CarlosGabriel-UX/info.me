@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="pt-BR" class="intro-on">
 <head>
+  <!-- Olá, curioso. Se você chegou até o código-fonte, talvez goste do terminal: aperte ' no mapa e digite ls -a -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Carlos Gabriel · info.me</title>
@@ -32,11 +33,15 @@
         <canvas id="gl" aria-hidden="true"></canvas>
         <div id="labels" aria-hidden="true"></div>
 
+        <!-- Legenda da linha do tempo -->
+        <p class="tl-caption" id="tlCaption" aria-live="polite"></p>
+
         <!-- Interface do mapa -->
         <div class="map-ui" id="mapUi">
           <div class="map-actions">
             <button class="btn primary" id="exploreBtn" type="button">Explorar em 3D</button>
             <button class="btn mono" type="button" data-shell title="Abrir o terminal (tecla ')">Terminal &gt;_</button>
+            <a class="btn" href="assets/cv-carlos-gabriel.pdf" download>Currículo PDF</a>
           </div>
           <p class="map-hint" id="mapHint">Clique num neurônio para ver os detalhes · aperte <kbd>'</kbd> para abrir o terminal</p>
         </div>
@@ -100,7 +105,7 @@
   </section>
 
   <footer>
-    <p><span id="footName"></span> · <a id="linkedin" href="#" target="_blank" rel="noopener">LinkedIn</a></p>
+    <p><span id="footName"></span> · <a id="linkedin" href="#" target="_blank" rel="noopener">LinkedIn</a> · <a href="assets/cv-carlos-gabriel.pdf" download>Currículo em PDF</a></p>
   </footer>
 
   <script type="module" src="assets/js/terminal.js"></script>

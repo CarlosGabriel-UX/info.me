@@ -19,13 +19,15 @@ Tudo que aparece no site está em [`assets/js/data.js`](assets/js/data.js):
 - `categories`: as regiões do cérebro (cor e posição 3D).
 - `nodes`: cada item (formação, certificado, skill) vira um neurônio ligado à sua região.
 - `links`: conexões extras entre neurônios, cada uma com o motivo que aparece no painel.
+- `timeline`: etapas da linha do tempo (comando `timeline`); cada etapa acende os neurônios listados em `ids`.
 
 ## Estrutura
 
 - `index.html`: estrutura da página e interface do modo explorar.
 - `assets/css/style.css`: estilos.
 - `assets/js/terminal.js`: a abertura em terminal (script digitado, saída com os dados de `data.js` e o zoom final).
-- `assets/js/shell.js`: terminal interativo por cima do mapa (tecla `'` ou botão **Terminal**). Comandos: `help`, `whoami`, `sobre`, `formacao`, `certs`, `skills [área]`, `ls`, `cd <área>`, `mapa <termo>`, `linkedin`, `nmap`, `clear`, `exit`.
+- `assets/js/shell.js`: terminal interativo por cima do mapa (tecla `'` ou botão **Terminal**). Comandos: `help`, `whoami`, `sobre`, `formacao`, `certs`, `skills [área]`, `ls`, `cd <área>`, `mapa <termo>`, `timeline`, `theme [verde|azul|vermelho]`, `cv`, `linkedin`, `nmap`, `clear`, `exit`. Também guarda um pequeno desafio CTF (a flag fica em base64 em `SECRET`).
+- `cv.html` e `assets/cv-carlos-gabriel.pdf`: currículo gerado a partir de `data.js`, sem telefone e e-mail. Para regerar o PDF depois de editar `data.js`, sirva o site, abra `cv.html` no Chrome e use Imprimir → Salvar como PDF (A4, sem margens extras), salvando por cima de `assets/cv-carlos-gabriel.pdf`.
 - `assets/js/main.js`: cena 3D (three.js), câmera que se afasta de dentro do cérebro, mapa neural, controles de órbita, busca, painel de detalhes e a lista acessível no fim da página.
 - `assets/vendor/three/`: three.js r169 (licença MIT) incluído no repositório, sem depender de CDN.
 

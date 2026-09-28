@@ -177,13 +177,10 @@ function randomDir() {
 }
 seed = 1234;
 const shellPts = [];
-const shellCols = [];
-const cA = new THREE.Color(0x3b82f6);
-const cB = new THREE.Color(0x67e8f9);
+const shellK = []; // mistura entre as duas cores do tema, por ponto
 const pushPt = (v, k) => {
   shellPts.push(v.x, v.y, v.z);
-  const c = cA.clone().lerp(cB, k);
-  shellCols.push(c.r, c.g, c.b);
+  shellK.push(k);
 };
 for (let i = 0; i < 26000; i++) pushPt(brainPoint(randomDir(), i % 2 ? 1 : -1), rand());
 for (let i = 0; i < 3600; i++) {
@@ -202,7 +199,7 @@ for (let i = 0; i < 5000; i++) {
 const shellRnd = new Float32Array(shellPts.length / 3).map(() => rand());
 const shellGeo = new THREE.BufferGeometry();
 shellGeo.setAttribute("position", new THREE.Float32BufferAttribute(shellPts, 3));
-shellGeo.setAttribute("color", new THREE.Float32BufferAttribute(shellCols, 3));
+shellGeo.setAttribute("color", new THREE.Float32BufferAttribute(new Float32Array(shellK.length * 3), 3));
 shellGeo.setAttribute("aRnd", new THREE.BufferAttribute(shellRnd, 1));
 // Pontos com brilho próprio: cintilam e são varridos por ondas de disparo sináptico
 const shellU = {
@@ -255,7 +252,13 @@ const shellMat = new THREE.ShaderMaterial({
 mind.add(new THREE.Points(shellGeo, shellMat));
 
 // Nebulosa e poeira estelar ao fundo do mapa
-const nebulaU = { uTime: { value: 0 }, uOpacity: { value: 0 } };
+const nebulaU = {
+  uTime: { value: 0 },
+  uOpacity: { value: 0 },
+  uN1: { value: new THREE.Color() },
+  uN2: { value: new THREE.Color() },
+  uN3: { value: new THREE.Color() },
+};
 const nebula = new THREE.Mesh(
   new THREE.SphereGeometry(60, 48, 32),
   new THREE.ShaderMaterial({
@@ -265,6 +268,7 @@ const nebula = new THREE.Mesh(
       void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: `
       uniform float uTime, uOpacity;
+      uniform vec3 uN1, uN2, uN3;
       varying vec3 vDir;
       float h(vec3 p) { return fract(sin(dot(p, vec3(17.1, 113.7, 71.3))) * 43758.5453); }
       float n(vec3 p) {
@@ -277,8 +281,8 @@ const nebula = new THREE.Mesh(
         vec3 d = vDir * 2.2 + vec3(0.0, 0.0, uTime * 0.01);
         float q = fbm(d + fbm(d * 1.7));
         float cloud = smoothstep(0.45, 0.95, q);
-        vec3 col = mix(vec3(0.02, 0.05, 0.16), vec3(0.05, 0.35, 0.3), smoothstep(0.55, 1.0, q));
-        col += vec3(0.25, 0.08, 0.35) * smoothstep(0.7, 1.0, fbm(d * 2.5 + 4.0)) * 0.5;
+        vec3 col = mix(uN1, uN2, smoothstep(0.55, 1.0, q));
+        col += uN3 * smoothstep(0.7, 1.0, fbm(d * 2.5 + 4.0)) * 0.5;
         gl_FragColor = vec4(col * cloud * uOpacity, 1.0);
       }`,
     side: THREE.BackSide,
@@ -306,6 +310,41 @@ const dustMat = new THREE.PointsMaterial({
 });
 const dust = new THREE.Points(dustGeo, dustMat);
 scene.add(dust);
+
+// Temas de cor do cérebro e do espaço (comando "theme" no terminal). As cores das áreas não mudam.
+const THEMES = {
+  azul: { a: 0x3b82f6, b: 0x67e8f9, fire: 0xd9fff0, neb: [0x050d29, 0x0d594d, 0x40145a], dust: 0x9fdcff },
+  verde: { a: 0x15803d, b: 0x86efac, fire: 0xdcffe4, neb: [0x03120a, 0x0d5a24, 0x0a3d2a], dust: 0xa7f3d0 },
+  vermelho: { a: 0xdc2626, b: 0xfda4af, fire: 0xffe0e3, neb: [0x1c0508, 0x661015, 0x4a0a36], dust: 0xfecaca },
+};
+let themeName = "azul";
+function applyTheme(name) {
+  const t = THEMES[name];
+  if (!t) return false;
+  themeName = name;
+  const a = new THREE.Color(t.a);
+  const b = new THREE.Color(t.b);
+  const c = new THREE.Color();
+  const col = shellGeo.attributes.color;
+  shellK.forEach((k, i) => {
+    c.copy(a).lerp(b, k);
+    col.setXYZ(i, c.r, c.g, c.b);
+  });
+  col.needsUpdate = true;
+  ["uN1", "uN2", "uN3"].forEach((u, i) => nebulaU[u].value.set(t.neb[i]));
+  dustMat.color.set(t.dust);
+  shellU.uFire.value.set(t.fire);
+  document.documentElement.dataset.theme = name;
+  try {
+    localStorage.setItem("infome-theme", name);
+  } catch (e) {}
+  return true;
+}
+let savedTheme = null;
+try {
+  savedTheme = localStorage.getItem("infome-theme");
+} catch (e) {}
+if (!applyTheme(savedTheme)) applyTheme("azul");
 
 // Nós
 const nodes = [];
@@ -517,6 +556,7 @@ function closePanel() {
 $("panelClose").addEventListener("click", closePanel);
 
 function select(n, focus) {
+  stopTimeline();
   selected = n;
   if (!exploring) enterExplore();
   openPanel(n);
@@ -578,6 +618,7 @@ function enterExplore() {
 }
 function exitExplore() {
   if (!exploring) return;
+  stopTimeline();
   exploring = false;
   document.body.classList.remove("exploring");
   controls.enabled = false;
@@ -600,6 +641,7 @@ function overview() {
 $("resetBtn").addEventListener("click", overview);
 window.addEventListener("keydown", (e) => {
   if (e.key !== "Escape" || e.defaultPrevented) return;
+  if (tl) return stopTimeline();
   if (!panel.hidden) closePanel();
   else exitExplore();
 });
@@ -625,6 +667,12 @@ window.addEventListener("map:focus", (e) => {
     e.detail.ok = n.kind === "core" ? P.fullName : n.label;
   }
 });
+window.addEventListener("map:theme", (e) => {
+  e.detail.themes = Object.keys(THEMES);
+  e.detail.current = themeName;
+  if (e.detail.name) e.detail.ok = applyTheme(e.detail.name);
+});
+window.addEventListener("map:timeline", (e) => (e.detail && e.detail.stop ? stopTimeline() : startTimeline()));
 window.addEventListener("map:overview", () => {
   if (!exploring) enterExplore();
   overview();
@@ -635,6 +683,38 @@ $("search").addEventListener("input", (e) => {
 $("search").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && searchFor(e.target.value, false)) e.target.blur();
 });
+
+// ---------------------------------------------------------------------------
+// Linha do tempo: acende os neurônios etapa por etapa (PROFILE.timeline)
+// ---------------------------------------------------------------------------
+const TL_STEP = 2.6;
+const tlCaption = $("tlCaption");
+let tl = null;
+function showStep() {
+  const st = P.timeline[tl.step];
+  tl.fresh = new Set(st.ids.map((id) => byId[id]).filter(Boolean));
+  tl.fresh.forEach((n) => tl.lit.add(n));
+  tlCaption.innerHTML = `<span class="tl-when">${esc(st.when)}</span><strong>${esc(st.title)}</strong><span class="tl-n">${
+    tl.step + 1
+  }/${P.timeline.length}</span>`;
+  window.dispatchEvent(new CustomEvent("map:timeline-step", { detail: { i: tl.step, step: st } }));
+}
+function startTimeline() {
+  if (!P.timeline || !P.timeline.length) return;
+  closePanel();
+  if (!exploring) enterExplore();
+  overview();
+  controls.autoRotate = !reduceMotion;
+  tl = { step: 0, t: performance.now() / 1000, hold: 0, lit: new Set(), fresh: new Set() };
+  document.body.classList.add("timeline");
+  showStep();
+}
+function stopTimeline() {
+  if (!tl) return;
+  tl = null;
+  document.body.classList.remove("timeline");
+  window.dispatchEvent(new CustomEvent("map:timeline-step", { detail: { i: -1 } }));
+}
 
 // Hover e clique nos neurônios
 const raycaster = new THREE.Raycaster();
@@ -795,6 +875,19 @@ function frame() {
     camera.lookAt(camTarget);
   }
 
+  // Linha do tempo avançando
+  if (tl) {
+    // relógio de parede, para o ritmo não depender da taxa de quadros
+    const now = performance.now() / 1000;
+    if (now - tl.t > TL_STEP) {
+      tl.t = now;
+      if (tl.step + 1 < P.timeline.length) {
+        tl.step++;
+        showStep();
+      } else if (++tl.hold > 1) stopTimeline(); // a última etapa fica um pouco mais na tela
+    }
+  }
+
   // Destaque (hover ou seleção)
   const focus = selected || hovered;
   const related = new Set();
@@ -805,8 +898,10 @@ function frame() {
 
   nodes.forEach((n) => {
     n.vis = visibility(n);
-    const dim = !!focus && !related.has(n);
-    const hot = n === focus;
+    const off = !!tl && n.kind === "leaf" && !tl.lit.has(n); // ainda não aprendido na linha do tempo
+    const fresh = !!tl && tl.fresh.has(n);
+    const dim = (!!focus && !related.has(n)) || off;
+    const hot = n === focus || fresh;
     const breathe = n.kind === "leaf" && !reduceMotion ? 1 + 0.12 * Math.sin(time * 2 + n.order * 20) : 1;
     n.mesh.material.opacity = n.vis * (dim ? 0.25 : 1);
     n.mesh.scale.setScalar(n.r * (0.3 + 0.7 * n.vis) * (hot ? 1.5 : 1) * breathe);
@@ -818,16 +913,17 @@ function frame() {
     const camD = camera.position.distanceTo(tmpV);
     const near = n.kind === "leaf" ? clamp(1.9 - camD / (finalDist * 0.8), 0.25, 1) : 1;
     n.tag.visible = n.vis > 0.05;
-    n.el.style.opacity = (n.vis * (related.has(n) ? 1 : near)).toFixed(2);
+    n.el.style.opacity = (n.vis * (off ? 0.12 : fresh || related.has(n) ? 1 : near)).toFixed(2);
     n.el.classList.toggle("dim", dim);
-    n.el.classList.toggle("hot", !!focus && related.has(n));
+    n.el.classList.toggle("hot", (!!focus && related.has(n)) || fresh);
   });
 
   edges.forEach((e, i) => {
     const v = Math.min(e.a.vis, e.b.vis);
-    const lit = focus && (e.a === focus || e.b === focus);
+    const lit = (focus && (e.a === focus || e.b === focus)) || (tl && (tl.fresh.has(e.a) || tl.fresh.has(e.b)));
     const base = e.kind === "link" ? 0.3 : 0.45;
-    const a = v * (lit ? 1.2 : focus ? 0.06 : base);
+    const on = !tl || ((e.a.kind !== "leaf" || tl.lit.has(e.a)) && (e.b.kind !== "leaf" || tl.lit.has(e.b)));
+    const a = v * (lit ? 1.2 : focus || !on ? 0.05 : base);
     for (let k = 0; k < SEG * 2; k++) edgeCol.set([e.color.r * a, e.color.g * a, e.color.b * a], (i * SEG * 2 + k) * 3);
   });
   edgeGeo.attributes.color.needsUpdate = true;
