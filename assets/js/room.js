@@ -401,6 +401,106 @@ function makeNeon(text, color) {
   return tex;
 }
 
+// ---------------------------------------------------------------------------
+// Holograma: superfícies translúcidas com brilho nas bordas (fresnel), linhas de
+// varredura e uma faixa clara subindo. Funciona em malhas comuns e com esqueleto.
+// ---------------------------------------------------------------------------
+const HOLO_TIME = { value: 0 };
+const HOLO_GREEN = new THREE.Color(0x22ff99);
+// main.js ajusta opacity/depthWrite dos materiais da sala; aqui a opacidade vai
+// para o uniform e o depthWrite fica sempre desligado (tudo é luz somada)
+function bindFade(m, u, pow = 1) {
+  Object.defineProperty(m, "opacity", { get: () => u.value, set: (v) => (u.value = Math.pow(v, pow)) });
+  Object.defineProperty(m, "depthWrite", { get: () => false, set: () => {} });
+  return m;
+}
+function holoSurface(color = HOLO_GREEN, strength = 1, fadePow = 1) {
+  const uniforms = {
+    uColor: { value: new THREE.Color(color) },
+    uTime: HOLO_TIME,
+    uOpacity: { value: 1 },
+    uStrength: { value: strength },
+  };
+  const m = new THREE.ShaderMaterial({
+    uniforms,
+    vertexShader: `
+      #include <common>
+      #include <skinning_pars_vertex>
+      varying vec3 vN;
+      varying vec3 vV;
+      varying vec3 vW;
+      void main() {
+        #include <beginnormal_vertex>
+        #include <skinbase_vertex>
+        #include <skinnormal_vertex>
+        #include <defaultnormal_vertex>
+        #include <begin_vertex>
+        #include <skinning_vertex>
+        #include <project_vertex>
+        vN = normalize(transformedNormal);
+        vV = -mvPosition.xyz;
+        vW = (modelMatrix * vec4(transformed, 1.0)).xyz;
+      }`,
+    fragmentShader: `
+      uniform vec3 uColor;
+      uniform float uTime, uOpacity, uStrength;
+      varying vec3 vN;
+      varying vec3 vV;
+      varying vec3 vW;
+      void main() {
+        vec3 n = normalize(vN);
+        float f = pow(1.0 - abs(dot(n, normalize(vV))), 2.4);
+        float scan = 0.5 + 0.5 * sin(vW.y * 320.0 - uTime * 5.0);
+        float sweep = 1.0 - smoothstep(0.0, 0.035, abs(fract(uTime * 0.11) * 3.2 - 0.2 - vW.y));
+        float a = (0.035 + f * 0.85) * (0.7 + 0.3 * scan) + sweep * 0.3;
+        a *= uStrength * uOpacity;
+        gl_FragColor = vec4(mix(uColor, vec3(0.85, 1.0, 0.92), sweep * 0.6) * a, a);
+      }`,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+  });
+  return bindFade(m, uniforms.uOpacity, fadePow);
+}
+const EDGE_MAT = new THREE.LineBasicMaterial({
+  color: new THREE.Color(0x22ff99).multiplyScalar(0.55),
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+  toneMapped: false,
+});
+
+// Grade no chão, com um pulso circular saindo de baixo da mesa
+function holoGrid() {
+  const u = { uTime: HOLO_TIME, uOpacity: { value: 1 } };
+  const m = new THREE.ShaderMaterial({
+    uniforms: u,
+    vertexShader: `
+      varying vec3 vW;
+      void main() { vW = (modelMatrix * vec4(position, 1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vW, 1.0); }`,
+    fragmentShader: `
+      uniform float uTime, uOpacity;
+      varying vec3 vW;
+      float grid(vec2 p, float w) {
+        vec2 d = abs(fract(p - 0.5) - 0.5) / fwidth(p);
+        return 1.0 - min(min(d.x, d.y) / w, 1.0);
+      }
+      void main() {
+        vec2 p = vW.xz;
+        float r = length(p - vec2(0.0, -0.6));
+        float g = grid(p * 4.0, 1.0) * 0.3 + grid(p, 1.3) * 0.7;
+        float ph = fract(uTime * 0.18);
+        float ring = exp(-pow(r - ph * 9.0, 2.0) * 5.0) * (1.0 - ph);
+        float fade = exp(-r * 0.32);
+        vec3 col = vec3(0.12, 1.0, 0.6) * (g * (0.55 + ring * 1.5) + ring * 0.12) * fade;
+        col += vec3(0.02, 0.12, 0.08) * exp(-r * 1.4); // brilho sob a mesa
+        gl_FragColor = vec4(col * uOpacity, 1.0);
+      }`,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+  });
+  return bindFade(m, u.uOpacity);
+}
+
 export function buildRoom(avatar = {}) {
   const group = new THREE.Group();
   const mats = [];
@@ -435,6 +535,7 @@ export function buildRoom(avatar = {}) {
     return o;
   }
 
+  const shellStart = group.children.length;
   // --- Quarto -------------------------------------------------------------
   // piso escuro e polido: reflete as telas e as luzes, com o reflexo borrado
   const floor = new Reflector(new THREE.PlaneGeometry(14, 14), {
@@ -683,6 +784,7 @@ export function buildRoom(avatar = {}) {
   rackGlow.position.set(0, 1.0, 0.6);
   rack.add(rackGlow);
 
+  const shellEnd = group.children.length;
   // --- Mesa ---------------------------------------------------------------
   // tampo de madeira escura com pés de metal preto
   const deskMat = std(0xffffff, { map: makeWood(), roughness: 0.55, metalness: 0.05 });
@@ -731,6 +833,7 @@ export function buildRoom(avatar = {}) {
   halo.scale.set(3.6, 1.8, 1);
   halo.position.set(0, MON.y, -1.7);
   group.add(halo);
+  halo.visible = false; // sem parede atrás, o halo ficaria solto no escuro
 
   // Notebook aberto ao lado, com a topologia de rede
   const topo = makeTopology();
@@ -976,6 +1079,178 @@ export function buildRoom(avatar = {}) {
   let person = null;
   new GLTFLoader().load(look.model, (gltf) => (person = setupPerson(gltf.scene)), undefined, (e) => console.warn("avatar:", e));
 
+  // Nuvem de pontos sobre a superfície do modelo já posado. A pele é calculada na
+  // CPU a cada quadro (a pose respira e a cabeça se mexe) e os pontos são sorteados
+  // nos triângulos, proporcionais à área. Os pontos da cabeça se espalham quando a
+  // câmera entra nela e viram poeira luminosa.
+  function avatarCloud(root) {
+    const parts = [];
+    root.traverse((o) => {
+      if (!o.isSkinnedMesh || !o.visible) return;
+      const g = o.geometry;
+      const pos = g.attributes.position;
+      const idx = g.index ? g.index.array : [...Array(pos.count).keys()];
+      const area = [];
+      let total = 0;
+      const a = new V3(), b = new V3(), c = new V3();
+      for (let t = 0; t < idx.length; t += 3) {
+        a.fromBufferAttribute(pos, idx[t]);
+        b.fromBufferAttribute(pos, idx[t + 1]);
+        c.fromBufferAttribute(pos, idx[t + 2]);
+        total += b.sub(a).cross(c.sub(a)).length() / 2;
+        area.push(total);
+      }
+      parts.push({ mesh: o, idx, area, total, skinned: new Float32Array(pos.count * 3) });
+    });
+    const sumArea = parts.reduce((s, p) => s + p.total, 0);
+    const N = 90000;
+    seed = 2718;
+    const samples = []; // [parte, a, b, c, u, v]
+    parts.forEach((p, pi) => {
+      const n = Math.round((N * p.total) / sumArea);
+      for (let k = 0; k < n; k++) {
+        const r = rand() * p.total;
+        let lo = 0, hi = p.area.length - 1;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (p.area[mid] < r) lo = mid + 1;
+          else hi = mid;
+        }
+        let u = rand(), v = rand();
+        if (u + v > 1) (u = 1 - u), (v = 1 - v);
+        samples.push(pi, p.idx[lo * 3], p.idx[lo * 3 + 1], p.idx[lo * 3 + 2], u, v);
+      }
+    });
+    const count = samples.length / 6;
+    const posArr = new Float32Array(count * 3);
+    const rnd = new Float32Array(count).map(() => rand());
+    const head = new Float32Array(count);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(posArr, 3).setUsage(THREE.DynamicDrawUsage));
+    geo.setAttribute("aRnd", new THREE.BufferAttribute(rnd, 1));
+    geo.setAttribute("aHead", new THREE.BufferAttribute(head, 1));
+    const u = {
+      uTime: HOLO_TIME,
+      uSize: { value: 0.0065 },
+      uScale: { value: 400 },
+      uHead: { value: 1 },
+      uOpacity: { value: 1 },
+      uHC: { value: HEAD.clone() },
+    };
+    const mat = new THREE.ShaderMaterial({
+      uniforms: u,
+      vertexShader: `
+        uniform float uTime, uSize, uScale, uHead;
+        uniform vec3 uHC;
+        attribute float aRnd, aHead;
+        varying float vA;
+        varying float vHot;
+        void main() {
+          vec3 p = position;
+          // a cabeça se desfaz para fora quando a câmera entra
+          float burst = (1.0 - uHead) * aHead;
+          vec3 dir = normalize(p - uHC + vec3(0.0, 1e-4, 0.0));
+          p += dir * burst * (0.1 + aRnd * 0.9) + vec3(0.0, burst * aRnd * 0.2, 0.0);
+          // falha de sinal: uma faixa horizontal desloca de vez em quando
+          float glitch = step(0.93, fract(sin(floor(uTime * 7.0) * 91.7) * 437.58));
+          float bandY = 0.3 + fract(sin(floor(uTime * 7.0) * 13.1) * 91.3) * 1.2;
+          p.x += glitch * step(abs(p.y - bandY), 0.025) * 0.03;
+          float sweep = 1.0 - smoothstep(0.0, 0.045, abs(fract(uTime * 0.11) * 3.2 - 0.2 - p.y));
+          vHot = sweep;
+          vA = (0.55 + 0.45 * sin(uTime * (1.5 + aRnd * 4.0) + aRnd * 60.0)) * (1.0 - burst * 0.6);
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          gl_PointSize = min(uSize * (1.0 + sweep * 1.4 + burst * 1.5) * uScale / -mv.z, 7.0);
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: `
+        uniform float uOpacity;
+        varying float vA;
+        varying float vHot;
+        void main() {
+          float d = length(gl_PointCoord - 0.5);
+          float a = smoothstep(0.5, 0.05, d) * vA * uOpacity;
+          vec3 c = mix(vec3(0.15, 1.0, 0.55), vec3(0.9, 1.0, 0.95), vHot);
+          gl_FragColor = vec4(c * a, a);
+        }`,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+    });
+    bindFade(mat, u.uOpacity);
+    mats.push(mat);
+    // a cabeça é controlada pelo fade da cabeça em main.js
+    headMats.push({
+      set opacity(v) {
+        u.uHead.value = v;
+      },
+      set depthWrite(v) {},
+      set visible(v) {},
+    });
+    const pts = new THREE.Points(geo, mat);
+    pts.frustumCulled = false;
+    group.add(pts);
+
+    const M = new THREE.Matrix4();
+    const inv = new THREE.Matrix4();
+    const mats4 = parts.map((p) => p.mesh.skeleton.bones.map(() => new THREE.Matrix4()));
+    const v = new V3();
+    const tv = new V3();
+    let first = true;
+    function update() {
+      inv.copy(group.matrixWorld).invert();
+      parts.forEach((p, pi) => {
+        const m = p.mesh;
+        const sk = m.skeleton;
+        // matriz final de cada osso, já levando para o espaço do grupo da sala
+        const pre = new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld).multiply(m.bindMatrixInverse);
+        sk.bones.forEach((bone, i) => {
+          mats4[pi][i].multiplyMatrices(pre, M.multiplyMatrices(bone.matrixWorld, sk.boneInverses[i])).multiply(m.bindMatrix);
+        });
+        const g = m.geometry;
+        const pos = g.attributes.position;
+        const si = g.attributes.skinIndex;
+        const sw = g.attributes.skinWeight;
+        const out = p.skinned;
+        const e = mats4[pi];
+        for (let i = 0; i < pos.count; i++) {
+          v.fromBufferAttribute(pos, i);
+          let x = 0, y = 0, z = 0;
+          for (let k = 0; k < 4; k++) {
+            const w = sw.getComponent(i, k);
+            if (w === 0) continue;
+            tv.copy(v).applyMatrix4(e[si.getComponent(i, k)]);
+            x += tv.x * w;
+            y += tv.y * w;
+            z += tv.z * w;
+          }
+          out[i * 3] = x;
+          out[i * 3 + 1] = y;
+          out[i * 3 + 2] = z;
+        }
+      });
+      for (let s = 0, j = 0; s < samples.length; s += 6, j += 3) {
+        const q = parts[samples[s]].skinned;
+        const a = samples[s + 1] * 3, b = samples[s + 2] * 3, c = samples[s + 3] * 3;
+        const uu = samples[s + 4], vv = samples[s + 5], ww = 1 - uu - vv;
+        posArr[j] = q[a] * ww + q[b] * uu + q[c] * vv;
+        posArr[j + 1] = q[a + 1] * ww + q[b + 1] * uu + q[c + 1] * vv;
+        posArr[j + 2] = q[a + 2] * ww + q[b + 2] * uu + q[c + 2] * vv;
+      }
+      if (first) {
+        // pontos perto do centro da cabeça (rosto, crânio, pescoço alto) são "cabeça"
+        for (let j = 0; j < count; j++) {
+          const dx = posArr[j * 3] - HEAD.x, dy = posArr[j * 3 + 1] - HEAD.y, dz = posArr[j * 3 + 2] - HEAD.z;
+          head[j] = Math.hypot(dx, dy * 0.85, dz) < 0.17 ? 1 : 0;
+        }
+        geo.attributes.aHead.needsUpdate = true;
+        first = false;
+      }
+      geo.attributes.position.needsUpdate = true;
+      u.uScale.value = (window.innerHeight * Math.min(window.devicePixelRatio || 1, 2)) / 2;
+    }
+    update();
+    return { update };
+  }
+
   function setupPerson(root) {
     const B = {};
     root.traverse((o) => {
@@ -989,14 +1264,16 @@ export function buildRoom(avatar = {}) {
         o.visible = false;
         return;
       }
-      const m = o.material;
-      m.transparent = true;
-      if (/Outfit/.test(o.name)) {
-        m.color.set(look.outfit);
-        m.roughness = Math.min(m.roughness ?? 1, 0.6);
+      if (/Teeth/.test(o.name)) {
+        o.visible = false;
+        return;
       }
+      // holograma: a malha vira só um contorno translúcido; o corpo em si é a nuvem de pontos
+      const m = holoSurface(HOLO_GREEN, /Eye/.test(o.name) ? 0.3 : 0.45);
+      o.material = m;
+      o.castShadow = o.receiveShadow = false;
       // cabeça e pele (mãos e pescoço) somem junto com a cabeça quando a câmera entra
-      (/Head|Eye|Teeth|Body/.test(o.name) ? headMats : mats).push(m);
+      (/Head|Eye|Body/.test(o.name) ? headMats : mats).push(m);
     });
     root.rotation.y = Math.PI; // o modelo olha para +z; a mesa fica em -z
     group.add(root);
@@ -1117,7 +1394,15 @@ export function buildRoom(avatar = {}) {
       limb([s * (half + 0.021), 0.0, -0.028], [s * (half + 0.03), 0.006, 0.07], 0.0016, glassFrame, glasses);
     });
     limb([-half + 0.02, 0.004, -0.032], [half - 0.02, 0.004, -0.032], 0.0016, glassFrame, glasses);
+    // os óculos somem mais rápido que a cabeça, para não ficarem na frente do mergulho
+    const glassEdge = EDGE_MAT.clone();
+    let ge = 1;
+    Object.defineProperty(glassEdge, "opacity", { get: () => ge, set: (v) => (ge = Math.pow(v, 4)) });
+    headMats.push(glassEdge);
+    holoify(glasses, glassEdge, 4);
     B.Head.attach(glasses);
+
+    const cloud = avatarCloud(root);
 
     // pose base para a animação
     const base = {};
@@ -1137,6 +1422,8 @@ export function buildRoom(avatar = {}) {
           .multiply(new Q().setFromAxisAngle(axisX, 0.03 * Math.sin(time * 0.7)));
         // mão mexendo o mouse
         B.RightForeArm.quaternion.copy(base.RightForeArm).multiply(tmp.setFromAxisAngle(axisY, 0.04 * Math.sin(time * 0.9)));
+        root.updateMatrixWorld(true);
+        cloud.update(time);
       },
     };
   }
@@ -1262,6 +1549,7 @@ export function buildRoom(avatar = {}) {
     box.getCenter(shaft.position);
     shaft.renderOrder = 5;
     shaft.frustumCulled = false;
+    shaft.visible = false; // no holograma não há janela nem luar
     group.add(shaft);
   }
 
@@ -1307,6 +1595,7 @@ export function buildRoom(avatar = {}) {
 
   function update(time, dt) {
     holoUniforms.uTime.value = time;
+    HOLO_TIME.value = time;
     shaftUniforms.uTime.value = time;
     if (!reduce) {
       if (person) person.update(time);
@@ -1349,13 +1638,55 @@ export function buildRoom(avatar = {}) {
     }
   }
 
-  // sombras: todo objeto sólido projeta e recebe sombra
+  // --- Holograma ---------------------------------------------------------
+  // o quarto some: fica só a mesa flutuando sobre uma grade, no meio da chuva de código
+  group.children.slice(shellStart, shellEnd).forEach((o) => (o.visible = false));
   group.traverse((o) => {
-    if (o.isMesh && o.material && o.material.isMeshStandardMaterial) {
-      o.castShadow = true;
-      o.receiveShadow = true;
-    }
+    if (o.isLight) o.visible = false;
   });
+  const grid = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), holoGrid());
+  grid.rotation.x = -Math.PI / 2;
+  mats.push(grid.material);
+  group.add(grid);
+  // cortinas de chuva de código em volta, bem ao fundo
+  [
+    [0, 1.8, -4.2, 0, 12],
+    [-4.4, 1.8, 0, Math.PI / 2, 10],
+  ].forEach(([x, y, z, ry, w]) => {
+    const m = holoMaterial();
+    m.uniforms.uColor.value = new THREE.Color(0x15803d);
+    m.uniforms.uGain.value = 0.28;
+    mats.push(m);
+    const c = new THREE.Mesh(new THREE.PlaneGeometry(w, 5), m);
+    c.position.set(x, y, z);
+    c.rotation.y = ry;
+    group.add(c);
+  });
+
+  // troca os materiais sólidos por holograma e desenha as arestas
+  function holoify(root, edgeMat = EDGE_MAT, fadePow = 1) {
+    const swap = new Map();
+    root.traverse((o) => {
+      if (!o.isMesh || o.isSkinnedMesh || !o.material || !o.material.isMeshStandardMaterial) return;
+      const old = o.material;
+      if (!swap.has(old)) {
+        const c = HOLO_GREEN.clone().lerp(old.color, 0.25);
+        const m = holoSurface(c, 0.9, fadePow);
+        (headMats.includes(old) ? headMats : mats).push(m);
+        swap.set(old, m);
+      }
+      o.material = swap.get(old);
+      o.castShadow = o.receiveShadow = false;
+      const tris = o.geometry.index ? o.geometry.index.count / 3 : o.geometry.attributes.position.count / 3;
+      if (tris < 6000 && o.visible) {
+        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(o.geometry, 28), edgeMat);
+        edges.userData.fadeWith = o.material;
+        o.add(edges);
+      }
+    });
+  }
+  holoify(group);
+  mats.push(EDGE_MAT);
 
   return { group, mats, headMats, update, glyphs };
 }
