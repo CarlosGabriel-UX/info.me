@@ -25,6 +25,7 @@ Tudo que aparece no site está em [`assets/js/data.js`](assets/js/data.js):
 - `index.html`: estrutura da página e interface do modo explorar.
 - `assets/css/style.css`: estilos.
 - `assets/js/terminal.js`: a abertura em terminal (script digitado, saída com os dados de `data.js` e o zoom final).
+- `assets/js/shell.js`: terminal interativo por cima do mapa (tecla `'` ou botão **Terminal**). Comandos: `help`, `whoami`, `sobre`, `formacao`, `certs`, `skills [área]`, `ls`, `cd <área>`, `mapa <termo>`, `linkedin`, `nmap`, `clear`, `exit`.
 - `assets/js/main.js`: cena 3D (three.js), câmera que se afasta de dentro do cérebro, mapa neural, controles de órbita, busca, painel de detalhes e a lista acessível no fim da página.
 - `assets/vendor/three/`: three.js r169 (licença MIT) incluído no repositório, sem depender de CDN.
 

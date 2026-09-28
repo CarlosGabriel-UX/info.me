@@ -438,3 +438,70 @@ html.intro-on, html.intro-on body { overflow: hidden; }
   .term.zoom, .term.zoom .term-win { animation: none; }
   .term.zoom { opacity: 0; transition: opacity 0.35s; }
 }
+
+/* ---------- Terminal interativo ---------- */
+.map-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.btn.mono { font-family: var(--mono); color: #86efac; border-color: rgba(34, 255, 136, 0.35); background: rgba(2, 14, 8, 0.8); }
+.btn.mono:hover { border-color: #22ff88; background: rgba(4, 30, 16, 0.9); }
+.map-hint kbd {
+  font: inherit;
+  color: #86efac;
+  border: 1px solid #14532d;
+  border-radius: 4px;
+  padding: 0 5px;
+}
+.shell {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 80;
+  width: min(540px, calc(100vw - 32px));
+  height: min(52vh, 480px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(34, 255, 136, 0.3);
+  border-radius: 10px;
+  background: rgba(2, 10, 6, 0.9);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 0 40px rgba(34, 255, 136, 0.12), 0 20px 60px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+  animation: shellIn 0.22s ease-out;
+}
+.shell[hidden] { display: none; }
+.shell .term-bar span { margin-right: 0; }
+.shell-close {
+  font: inherit;
+  color: #4ade80;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.shell-close:hover { color: #fff; }
+.shell .shell-out { flex: 1; padding: 12px 16px 4px; font-size: 13.5px; }
+.shell .shell-out .ln.res { margin-bottom: 0.5em; }
+.term-body .r { color: #fb7185; }
+.shell-line {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 1ch;
+  padding: 6px 16px 12px;
+  font-size: 13.5px;
+  cursor: text;
+}
+.shell-line input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: #f0fdf4;
+  caret-color: #22ff88;
+  background: none;
+  border: 0;
+  outline: none;
+  text-shadow: inherit;
+}
+/* o painel de detalhes fica à direita; com o terminal aberto, a dica de controles sai do caminho */
+body.shell-open .controls-hint { opacity: 0; }
+@keyframes shellIn { from { transform: translateY(14px); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .shell { animation: none; } }

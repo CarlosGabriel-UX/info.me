@@ -593,12 +593,13 @@ function exitExplore() {
 
 $("exploreBtn").addEventListener("click", enterExplore);
 $("exitBtn").addEventListener("click", exitExplore);
-$("resetBtn").addEventListener("click", () => {
+function overview() {
   closePanel();
   tweenTo(mind.position.clone().add(new THREE.Vector3(0, 2.5, finalDist)), mind.position);
-});
+}
+$("resetBtn").addEventListener("click", overview);
 window.addEventListener("keydown", (e) => {
-  if (e.key !== "Escape") return;
+  if (e.key !== "Escape" || e.defaultPrevented) return;
   if (!panel.hidden) closePanel();
   else exitExplore();
 });
@@ -611,6 +612,23 @@ function searchFor(q, exact) {
   if (n) select(n, true);
   return !!n;
 }
+// Comandos vindos do terminal interativo (shell.js). detail.ok volta com o nome do neurônio achado.
+const norm = (t) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+window.addEventListener("map:focus", (e) => {
+  const q = norm(e.detail.q);
+  if (!q) return;
+  const n =
+    nodes.find((x) => norm(x.label) === q || x.id === q || (x.cat && x.kind === "hub" && x.cat.id === q)) ||
+    nodes.find((x) => norm(x.label).includes(q));
+  if (n) {
+    select(n, true);
+    e.detail.ok = n.kind === "core" ? P.fullName : n.label;
+  }
+});
+window.addEventListener("map:overview", () => {
+  if (!exploring) enterExplore();
+  overview();
+});
 $("search").addEventListener("input", (e) => {
   if (searchFor(e.target.value, true)) e.target.blur();
 });
