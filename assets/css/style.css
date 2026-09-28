@@ -380,3 +380,58 @@ footer a { color: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   .scroll-hint .arrow { animation: none; }
 }
+
+/* ---------- Tela de boot ---------- */
+html.booting, html.booting body { overflow: hidden; }
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  background: #000;
+  color: #22ff88;
+  font: 15px/1.75 var(--mono);
+  text-shadow: 0 0 8px rgba(34, 255, 136, 0.55);
+  cursor: pointer;
+}
+/* linhas de varredura e leve cintilação de monitor CRT */
+.boot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0 2px, rgba(0, 0, 0, 0.35) 2px 3px);
+  animation: bootFlicker 3s infinite steps(1);
+}
+.boot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(34, 255, 136, 0.06), rgba(0, 0, 0, 0.8) 75%);
+}
+.boot-inner { width: min(760px, 86vw); margin: 0 auto; }
+.boot-log { margin: 0; min-height: 13em; white-space: pre-wrap; font: inherit; }
+.boot-log .ok { color: #bbf7d0; }
+.boot-log .dim { color: #15803d; }
+.boot-log .hi { color: #eafff2; }
+.boot-log .cursor { display: inline-block; width: 0.6em; height: 1.1em; vertical-align: -0.2em; background: #22ff88; animation: bootBlink 1s steps(1) infinite; }
+.boot-bar { width: min(460px, 70vw); height: 6px; margin-top: 18px; border: 1px solid #15803d; padding: 1px; }
+.boot-bar span { display: block; height: 100%; width: 0; background: #22ff88; box-shadow: 0 0 12px #22ff88; transition: width 0.25s linear; }
+.boot-pct { margin: 6px 0 0; color: #15803d; font-size: 12px; }
+.boot-skip { position: absolute; left: 0; right: 0; bottom: 28px; margin: 0; text-align: center; color: #166534; font-size: 12px; }
+/* ao sair, a imagem colapsa numa linha como um monitor antigo desligando */
+.boot.out { animation: bootOut 0.75s cubic-bezier(0.7, 0, 0.3, 1) forwards; pointer-events: none; }
+@keyframes bootOut {
+  0% { clip-path: inset(0 0 0 0); opacity: 1; filter: brightness(1); }
+  45% { clip-path: inset(49% 0 49% 0); opacity: 1; filter: brightness(2.5); }
+  75% { clip-path: inset(49.8% 30% 49.8% 30%); opacity: 1; }
+  100% { clip-path: inset(50% 50% 50% 50%); opacity: 0; }
+}
+@keyframes bootBlink { 50% { opacity: 0; } }
+@keyframes bootFlicker { 0% { opacity: 1; } 47% { opacity: 0.85; } 48% { opacity: 1; } 91% { opacity: 0.9; } 92% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .boot::before { animation: none; }
+  .boot.out { animation: none; opacity: 0; transition: opacity 0.3s; }
+}

@@ -2,10 +2,6 @@
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { Reflector } from "three/addons/objects/Reflector.js";
-import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
-
-RectAreaLightUniformsLib.init();
 
 // Centro da cabeça: é daqui que a câmera "entra" no cérebro.
 export const HEAD = new THREE.Vector3(0, 1.22, -0.02);
@@ -216,53 +212,6 @@ function makeTopology() {
   return { tex, draw };
 }
 
-// Janela com a cidade à noite
-function makeCity() {
-  const c = document.createElement("canvas");
-  c.width = 1024;
-  c.height = 640;
-  const g = c.getContext("2d");
-  const sky = g.createLinearGradient(0, 0, 0, 640);
-  sky.addColorStop(0, "#020617");
-  sky.addColorStop(0.6, "#0b1b3a");
-  sky.addColorStop(1, "#1e2a5a");
-  g.fillStyle = sky;
-  g.fillRect(0, 0, 1024, 640);
-  seed = 5;
-  for (let i = 0; i < 90; i++) {
-    g.fillStyle = `rgba(255,255,255,${0.2 + rand() * 0.5})`;
-    g.fillRect(rand() * 1024, rand() * 260, 2, 2);
-  }
-  // lua
-  g.fillStyle = "rgba(226,232,240,0.85)";
-  g.beginPath();
-  g.arc(820, 110, 34, 0, Math.PI * 2);
-  g.fill();
-  // prédios em duas camadas
-  for (const layer of [0, 1]) {
-    let x = -20;
-    while (x < 1040) {
-      const w = 50 + rand() * 90;
-      const h = (layer ? 180 : 260) + rand() * (layer ? 180 : 220);
-      const top = 640 - h;
-      g.fillStyle = layer ? "#060a14" : "#0a1224";
-      g.fillRect(x, top, w, h);
-      for (let wy = top + 12; wy < 630; wy += 18) {
-        for (let wx = x + 8; wx < x + w - 10; wx += 14) {
-          if (rand() < (layer ? 0.28 : 0.18)) {
-            g.fillStyle = rand() < 0.75 ? "rgba(253,224,71,0.8)" : "rgba(125,211,252,0.8)";
-            g.fillRect(wx, wy, 6, 8);
-          }
-        }
-      }
-      x += w + 6;
-    }
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
 // Teclado com teclas iluminadas
 function makeKeys() {
   const c = document.createElement("canvas");
@@ -287,120 +236,9 @@ function makeKeys() {
   return tex;
 }
 
-// Tampo de madeira escura (veios desenhados em canvas)
-function makeWood() {
-  const c = document.createElement("canvas");
-  c.width = 1024;
-  c.height = 256;
-  const g = c.getContext("2d");
-  g.fillStyle = "#3b2618";
-  g.fillRect(0, 0, c.width, c.height);
-  seed = 5;
-  for (let i = 0; i < 90; i++) {
-    const y0 = rand() * c.height;
-    const amp = 2 + rand() * 6;
-    const f = 0.004 + rand() * 0.01;
-    g.strokeStyle = rand() < 0.5 ? `rgba(20,10,4,${0.25 + rand() * 0.35})` : `rgba(120,78,46,${0.12 + rand() * 0.2})`;
-    g.lineWidth = 0.6 + rand() * 2.2;
-    g.beginPath();
-    for (let x = 0; x <= c.width; x += 8) {
-      const y = y0 + Math.sin(x * f + i) * amp + Math.sin(x * f * 3.1) * amp * 0.3;
-      x === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
-    }
-    g.stroke();
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
-  return tex;
-}
-
 // ---------------------------------------------------------------------------
 // Montagem
 // ---------------------------------------------------------------------------
-// Parede de tijolos escuros: cor e relevo desenhados em canvas (1 m x 1 m por repetição)
-function makeBricks() {
-  const S = 1024;
-  const col = document.createElement("canvas");
-  const bump = document.createElement("canvas");
-  col.width = col.height = bump.width = bump.height = S;
-  const g = col.getContext("2d");
-  const b = bump.getContext("2d");
-  g.fillStyle = "#0d0e11";
-  g.fillRect(0, 0, S, S);
-  b.fillStyle = "#000";
-  b.fillRect(0, 0, S, S);
-  seed = 314;
-  const rows = 15;
-  const rh = S / rows;
-  const bw = S / 4.5;
-  for (let r = 0; r < rows; r++) {
-    const off = r % 2 ? bw / 2 : 0;
-    for (let x = -bw + off; x < S + bw; x += bw) {
-      const v = 34 + rand() * 18;
-      const warm = rand() < 0.2 ? 6 : 0;
-      g.fillStyle = `rgb(${v + warm},${v},${v + 6})`;
-      g.fillRect(x + 3, r * rh + 3, bw - 6, rh - 6);
-      // manchas e desgaste
-      for (let k = 0; k < 40; k++) {
-        const d = rand() * 14 - 7;
-        g.fillStyle = `rgba(${v + d},${v + d},${v + d + 4},0.6)`;
-        g.fillRect(x + 3 + rand() * (bw - 10), r * rh + 3 + rand() * (rh - 10), 2 + rand() * 6, 2 + rand() * 4);
-      }
-      const bv = 150 + rand() * 60;
-      b.fillStyle = `rgb(${bv},${bv},${bv})`;
-      b.fillRect(x + 4, r * rh + 4, bw - 8, rh - 8);
-    }
-  }
-  // ruído fino no relevo
-  const img = b.getImageData(0, 0, S, S);
-  for (let i = 0; i < img.data.length; i += 4) {
-    const n = (rand() - 0.5) * 40;
-    img.data[i] = img.data[i + 1] = img.data[i + 2] = Math.max(0, Math.min(255, img.data[i] + n));
-  }
-  b.putImageData(img, 0, 0);
-  const map = new THREE.CanvasTexture(col);
-  map.colorSpace = THREE.SRGBColorSpace;
-  const bumpMap = new THREE.CanvasTexture(bump);
-  [map, bumpMap].forEach((t) => {
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.anisotropy = 8;
-  });
-  return { map, bumpMap };
-}
-
-// Letreiro de neon: tubo claro com halo desenhado em volta
-function makeNeon(text, color) {
-  const c = document.createElement("canvas");
-  c.width = 1024;
-  c.height = 256;
-  const g = c.getContext("2d");
-  g.font = "600 150px 'Courier New', monospace";
-  g.textAlign = "center";
-  g.textBaseline = "middle";
-  g.lineJoin = "round";
-  for (const [blur, alpha, width] of [
-    [60, 0.55, 14],
-    [25, 0.8, 10],
-    [8, 1, 7],
-  ]) {
-    g.shadowColor = color;
-    g.shadowBlur = blur;
-    g.strokeStyle = color;
-    g.globalAlpha = alpha;
-    g.lineWidth = width;
-    g.strokeText(text, 512, 132);
-  }
-  g.shadowBlur = 0;
-  g.globalAlpha = 1;
-  g.strokeStyle = "#eafff2";
-  g.lineWidth = 3;
-  g.strokeText(text, 512, 132);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
 // ---------------------------------------------------------------------------
 // Holograma: superfícies translúcidas com brilho nas bordas (fresnel), linhas de
 // varredura e uma faixa clara subindo. Funciona em malhas comuns e com esqueleto.
@@ -535,259 +373,9 @@ export function buildRoom(avatar = {}) {
     return o;
   }
 
-  const shellStart = group.children.length;
-  // --- Quarto -------------------------------------------------------------
-  // piso escuro e polido: reflete as telas e as luzes, com o reflexo borrado
-  const floor = new Reflector(new THREE.PlaneGeometry(14, 14), {
-    textureWidth: Math.round(window.innerWidth * 0.6),
-    textureHeight: Math.round(window.innerHeight * 0.6),
-    clipBias: 0.003,
-    multisample: 0,
-    shader: {
-      uniforms: {
-        color: { value: null },
-        tDiffuse: { value: null },
-        textureMatrix: { value: null },
-        opacity: { value: 1 },
-      },
-      vertexShader: Reflector.ReflectorShader.vertexShader.replace(
-        "varying vec4 vUv;",
-        "varying vec4 vUv;\nvarying vec3 vWorld;"
-      ).replace("vUv = textureMatrix", "vWorld = (modelMatrix * vec4(position, 1.0)).xyz;\n\t\t\tvUv = textureMatrix"),
-      fragmentShader: `
-        uniform sampler2D tDiffuse;
-        uniform float opacity;
-        varying vec4 vUv;
-        varying vec3 vWorld;
-        float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-        void main() {
-          vec2 uv = vUv.xy / vUv.w;
-          // desfoque em disco + um pouco de ruído, como um piso envernizado
-          vec3 acc = vec3(0.0);
-          float r = 0.006;
-          for (int i = 0; i < 12; i++) {
-            float a = float(i) * 2.39996;
-            float d = sqrt(float(i) + 0.5) / 3.5;
-            acc += texture2D(tDiffuse, uv + vec2(cos(a), sin(a)) * d * r).rgb;
-          }
-          acc /= 12.0;
-          float grain = 0.85 + 0.15 * hash(floor(vWorld.xz * 180.0));
-          // o reflexo some com a distância do centro da sala
-          float fade = 1.0 - smoothstep(1.5, 5.0, length(vWorld.xz));
-          gl_FragColor = vec4(acc * 0.3 * grain * fade * opacity, 1.0);
-          #include <tonemapping_fragment>
-          #include <colorspace_fragment>
-        }`,
-    },
-  });
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = 0.0015;
-  // o reflexo é somado por cima do piso de verdade, que recebe luz e sombra
-  floor.material.transparent = true;
-  floor.material.depthWrite = false;
-  floor.material.blending = THREE.AdditiveBlending;
-  floor.material.uniforms.opacity.value = 1;
-  // a opacidade da sala é aplicada no uniform (main.js ajusta material.opacity)
-  Object.defineProperty(floor.material, "opacity", {
-    get: () => floor.material.uniforms.opacity.value,
-    set: (v) => (floor.material.uniforms.opacity.value = v),
-  });
-  mats.push(floor.material);
-  group.add(floor);
-  const floorBase = add(new THREE.PlaneGeometry(14, 14), std(0x0a0c11, { roughness: 0.55, metalness: 0.2 }));
-  floorBase.rotation.x = -Math.PI / 2;
-  const rug = add(new THREE.CircleGeometry(1.35, 64), std(0x111726, { roughness: 1 }), 0, 0.003, -0.2);
-  rug.rotation.x = -Math.PI / 2;
-
-  // paredes de tijolo escuro (cada parede com a sua repetição da textura)
-  const bricks = makeBricks();
-  const brickMat = (w, h) => {
-    const map = bricks.map.clone();
-    const bumpMap = bricks.bumpMap.clone();
-    map.repeat.set(w, h);
-    bumpMap.repeat.set(w, h);
-    return std(0x9aa3b5, { map, bumpMap, bumpScale: 2.5, roughness: 0.92 });
-  };
-  add(new THREE.PlaneGeometry(14, 5), brickMat(14, 5), 0, 2.5, -1.75);
-  const sideWall = add(new THREE.PlaneGeometry(8, 5), brickMat(8, 5), -2.6, 2.5, 1);
-  sideWall.rotation.y = Math.PI / 2;
-  const rightWall = add(new THREE.PlaneGeometry(8, 5), brickMat(8, 5), 3.35, 2.5, 1);
-  rightWall.rotation.y = -Math.PI / 2;
-  // rodapé
-  const baseMat = std(0x07080a, { roughness: 0.6 });
-  add(new THREE.BoxGeometry(14, 0.08, 0.02), baseMat, 0, 0.04, -1.74);
-  const baseR = add(new THREE.BoxGeometry(8, 0.08, 0.02), baseMat, 3.34, 0.04, 1);
-  baseR.rotation.y = -Math.PI / 2;
-
-  // Janela com a cidade
-  // o vidro tem gotas de chuva escorrendo, que refratam a cidade
-  const winU = { uCity: { value: makeCity() }, uTime: { value: 0 }, uOpacity: { value: 1 } };
-  const winMat = new THREE.ShaderMaterial({
-    uniforms: winU,
-    transparent: true,
-    vertexShader: `
-      varying vec2 vUv;
-      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-    fragmentShader: `
-      uniform sampler2D uCity;
-      uniform float uTime, uOpacity;
-      varying vec2 vUv;
-      float h21(vec2 p) { p = fract(p * vec2(233.34, 851.73)); p += dot(p, p + 23.45); return fract(p.x * p.y); }
-      // xy: desvio da refração, z: máscara da gota
-      vec3 runningDrops(vec2 uv, float t, float cells) {
-        vec2 st = vec2(uv.x * cells * 1.6, uv.y * cells);
-        vec2 id = floor(st);
-        vec2 gv = fract(st) - 0.5;
-        float n = h21(id);
-        if (n < 0.4) return vec3(0.0);
-        float ph = fract(t * (0.04 + n * 0.08) + n * 7.0);
-        // desce aos trancos, como gota de verdade
-        float y = 0.42 - (ph + 0.03 * sin(ph * 50.0)) * 0.84;
-        float x = (fract(n * 13.7) - 0.5) * 0.5 + 0.03 * sin(ph * 18.0 + n * 10.0);
-        vec2 d = (gv - vec2(x, y)) * vec2(1.6, 1.0);
-        float r = 0.1 + 0.05 * fract(n * 31.0);
-        float m = smoothstep(r, r * 0.5, length(d));
-        // gotinhas deixadas no rastro, acima da gota
-        vec2 bd = vec2((gv.x - x) * 1.6 * 7.0, fract(gv.y * 7.0) - 0.5);
-        float trail = smoothstep(0.35, 0.15, length(bd)) * step(y, gv.y) * (1.0 - smoothstep(y, 0.5, gv.y));
-        return vec3(d * m * 3.0 + bd * trail * 0.15, max(m, trail * 0.7));
-      }
-      vec3 staticDrops(vec2 uv, float cells) {
-        vec2 st = uv * vec2(cells * 1.6, cells);
-        vec2 id = floor(st);
-        vec2 gv = fract(st) - 0.5;
-        float n = h21(id + 17.0);
-        vec2 c = vec2(fract(n * 7.3), fract(n * 19.1)) - 0.5;
-        vec2 d = gv - c * 0.7;
-        float m = smoothstep(0.2, 0.1, length(d)) * step(0.72, n);
-        return vec3(d * m, m);
-      }
-      void main() {
-        vec3 a = runningDrops(vUv, uTime, 6.0);
-        vec3 b = runningDrops(vUv * 1.37 + 0.23, uTime * 1.15, 10.0);
-        vec3 c = staticDrops(vUv, 26.0);
-        vec2 off = (a.xy + b.xy) * 0.03 + c.xy * 0.02;
-        float m = clamp(a.z + b.z + c.z, 0.0, 1.0);
-        // vidro embaçado: a cidade borrada; dentro das gotas ela aparece nítida e invertida
-        vec3 blur = vec3(0.0);
-        for (int i = 0; i < 8; i++) {
-          float ang = float(i) * 0.785;
-          blur += texture2D(uCity, vUv + vec2(cos(ang), sin(ang)) * 0.008).rgb;
-        }
-        blur /= 8.0;
-        vec3 sharp = texture2D(uCity, vUv - off * 4.0).rgb;
-        vec3 col = mix(blur * 0.8, sharp * 1.25 + 0.02, m);
-        gl_FragColor = vec4(col, uOpacity);
-        #include <colorspace_fragment>
-      }`,
-  });
-  Object.defineProperty(winMat, "opacity", {
-    get: () => winU.uOpacity.value,
-    set: (v) => (winU.uOpacity.value = v),
-  });
-  mats.push(winMat);
-  const win = add(new THREE.PlaneGeometry(1.5, 0.95), winMat, -1.35, 1.55, -1.74);
-  const frameMat = std(0x15181f);
-  [
-    [1.58, 0.05, 0, 0.5],
-    [1.58, 0.05, 0, -0.5],
-    [0.05, 1.05, -0.77, 0],
-    [0.05, 1.05, 0.77, 0],
-    [0.03, 0.95, 0, 0],
-    [1.5, 0.03, 0, 0.05],
-  ].forEach(([w, h, x, y]) => add(new THREE.BoxGeometry(w, h, 0.05), frameMat, win.position.x + x, win.position.y + y, -1.72));
-  add(new THREE.BoxGeometry(1.7, 0.04, 0.16), frameMat, win.position.x, win.position.y - 0.53, -1.67);
-  // luar entrando pela janela: projeta a sombra da esquadria no chão
-  const moon = new THREE.SpotLight(0x8fa6e8, 14, 9, 0.32, 0.45, 1.2);
-  moon.position.set(win.position.x - 0.9, win.position.y + 1.6, -3.6);
-  moon.target.position.set(-0.55, 0, 0.35);
-  moon.castShadow = true;
-  moon.shadow.mapSize.set(2048, 2048);
-  moon.shadow.bias = -0.0004;
-  moon.shadow.radius = 3;
-  group.add(moon, moon.target);
-  const moonLight = new THREE.RectAreaLight(0x6d83c9, 0.55, 1.5, 0.95);
-  moonLight.position.set(win.position.x, win.position.y, -1.7);
-  moonLight.lookAt(win.position.x, win.position.y - 0.4, 0);
-  group.add(moonLight);
-
-  // Prateleira com livros e um cacto
-  const shelfMat = std(0x171a21);
-  add(rbox(0.9, 0.03, 0.22, 0.008), shelfMat, 1.35, 1.62, -1.63);
-  add(rbox(0.9, 0.03, 0.22, 0.008), shelfMat, 1.35, 1.95, -1.63);
-  seed = 11;
-  const bookCols = [0x1e3a8a, 0x7c2d12, 0x14532d, 0x3b0764, 0x1f2937, 0x0c4a6e];
-  let bx = 0.98;
-  for (let i = 0; i < 9; i++) {
-    const w = 0.035 + rand() * 0.03;
-    const h = 0.18 + rand() * 0.08;
-    const b = add(rbox(w, h, 0.15, 0.004), std(bookCols[i % bookCols.length]), bx + w / 2, 1.635 + h / 2, -1.63);
-    if (i === 8) b.rotation.z = 0.3;
-    bx += w + 0.006;
-  }
-  add(new THREE.CylinderGeometry(0.05, 0.04, 0.08, 20), std(0x3f3f46), 1.6, 2.005, -1.62);
-  add(new THREE.CapsuleGeometry(0.03, 0.08, 6, 10), std(0x166534), 1.6, 2.1, -1.62);
-
-  // luz de LED sob a prateleira, lavando os tijolos
-  add(new THREE.BoxGeometry(0.86, 0.006, 0.01), basic(0x22d3ee), 1.35, 1.603, -1.53);
-  const shelfWash = new THREE.RectAreaLight(0x22d3ee, 2.2, 0.86, 0.05);
-  shelfWash.position.set(1.35, 1.6, -1.55);
-  shelfWash.lookAt(1.35, 0.9, -1.7);
-  group.add(shelfWash);
-
-  // Letreiro neon na parede, acima do monitor
-  const neonMat = basic(0xffffff, {
-    map: makeNeon("> whoami_", "#22ff88"),
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-  const neon = add(new THREE.PlaneGeometry(0.8, 0.2), neonMat, 0.25, 1.72, -1.735);
-  neon.renderOrder = 1; // desenhado depois das paredes (que também são transparentes)
-  const neonLight = new THREE.RectAreaLight(0x22ff88, 3, 1.0, 0.15);
-  neonLight.position.set(0.25, 1.72, -1.7);
-  neonLight.lookAt(0.25, 1.0, 0.5);
-  group.add(neonLight);
-
-  // Rack de servidores no canto, com LEDs piscando
-  const rack = new THREE.Group();
-  rack.position.set(2.85, 0, 1.7);
-  rack.rotation.y = -Math.PI / 2 - 0.35;
-  group.add(rack);
-  const rackMat = std(0x0b0c10, { roughness: 0.35, metalness: 0.8 });
-  const RH = 1.9;
-  add(rbox(0.62, RH, 0.7, 0.012), rackMat, 0, RH / 2, 0, rack);
-  // frente escura onde ficam os servidores
-  add(new THREE.BoxGeometry(0.54, RH - 0.12, 0.01), std(0x030304, { roughness: 0.5 }), 0, RH / 2, 0.351, rack);
-  const rackLeds = [];
-  const ledGeo = new THREE.BoxGeometry(0.012, 0.008, 0.004);
-  const ledCols = [0x22c55e, 0x22c55e, 0x22c55e, 0x38bdf8, 0xf59e0b];
-  const ledMats = ledCols.map((c) => basic(c));
-  seed = 404;
-  const unitMat = std(0x16181e, { roughness: 0.4, metalness: 0.6 });
-  const ventMat = std(0x0a0b0e, { roughness: 0.8 });
-  for (let u = 0; u < 12; u++) {
-    const h = u % 4 === 0 ? 0.16 : 0.1;
-    const y = 0.12 + u * 0.135 + h / 2;
-    if (y + h / 2 > RH - 0.08) break;
-    add(new THREE.BoxGeometry(0.5, h - 0.012, 0.02), unitMat, 0, y, 0.36, rack);
-    // grade de ventilação e baias de disco
-    add(new THREE.BoxGeometry(0.2, h - 0.04, 0.004), ventMat, 0.1, y, 0.372, rack);
-    for (let k = 0; k < 10; k++) {
-      const led = add(ledGeo, ledMats[Math.floor(rand() * ledMats.length)], -0.22 + k * 0.024, y + (h / 2 - 0.022), 0.373, rack);
-      led.userData.phase = rand() * 20;
-      led.userData.rate = 2 + rand() * 14;
-      rackLeds.push(led);
-    }
-  }
-  // luz verde que escapa do rack
-  const rackGlow = new THREE.PointLight(0x22c55e, 1.2, 2.2, 2);
-  rackGlow.position.set(0, 1.0, 0.6);
-  rack.add(rackGlow);
-
-  const shellEnd = group.children.length;
   // --- Mesa ---------------------------------------------------------------
-  // tampo de madeira escura com pés de metal preto
-  const deskMat = std(0xffffff, { map: makeWood(), roughness: 0.55, metalness: 0.05 });
+  // tampo com pés de metal
+  const deskMat = std(0xffffff);
   const metal = std(0x0e0f13, { roughness: 0.4, metalness: 0.7 });
   add(rbox(2.0, 0.045, 0.85, 0.014), deskMat, 0, 0.74, -0.95);
   [
@@ -798,10 +386,6 @@ export function buildRoom(avatar = {}) {
   ].forEach(([x, z]) => add(new THREE.BoxGeometry(0.04, 0.72, 0.04), metal, x, 0.36, z));
   // fita de LED sob a borda da mesa
   add(new THREE.BoxGeometry(1.9, 0.008, 0.008), basic(0x22d3ee), 0, 0.715, -0.54);
-  const ledSpill = new THREE.RectAreaLight(0x22d3ee, 2.2, 1.9, 0.05);
-  ledSpill.position.set(0, 0.71, -0.54);
-  ledSpill.lookAt(0, 0, -0.3);
-  group.add(ledSpill);
 
   // Monitor principal (curvo) com terminal
   const term = makeTerminal();
@@ -822,18 +406,6 @@ export function buildRoom(avatar = {}) {
   group.add(bezel);
   add(new THREE.BoxGeometry(0.05, 0.3, 0.05), metal, 0, 0.9, MON.z - 0.05);
   add(rbox(0.3, 0.015, 0.2, 0.006), metal, 0, 0.765, MON.z - 0.02);
-  const monLight = new THREE.RectAreaLight(0x5b8cff, 9, 0.78, 0.44);
-  monLight.position.set(0, MON.y, MON.z + 0.02);
-  monLight.lookAt(0, MON.y - 0.1, 1);
-  group.add(monLight);
-  const halo = new THREE.Sprite(
-    new THREE.SpriteMaterial({ map: GLOW, color: 0x4f46e5, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending })
-  );
-  mats.push(halo.material);
-  halo.scale.set(3.6, 1.8, 1);
-  halo.position.set(0, MON.y, -1.7);
-  group.add(halo);
-  halo.visible = false; // sem parede atrás, o halo ficaria solto no escuro
 
   // Notebook aberto ao lado, com a topologia de rede
   const topo = makeTopology();
@@ -850,10 +422,6 @@ export function buildRoom(avatar = {}) {
   side.add(lid);
   add(rbox(0.46, 0.3, 0.012, 0.008), lapMat, 0, 0.15, -0.006, lid);
   add(new THREE.PlaneGeometry(0.43, 0.26), basic(0xffffff, { map: topo.tex }), 0, 0.152, 0.001, lid);
-  const sideLight = new THREE.RectAreaLight(0x22d3ee, 3, 0.43, 0.26);
-  sideLight.position.set(0, 0.15, 0.01);
-  sideLight.lookAt(0, 0.15, 1);
-  lid.add(sideLight);
 
   // Teclado, mouse e mousepad
   const keysTex = makeKeys();
@@ -1041,7 +609,7 @@ export function buildRoom(avatar = {}) {
   // Modelo humano com esqueleto (assets/models/avatar.glb), de sobretudo preto e
   // óculos escuros. A pose sentada é montada apontando os ossos para alvos na
   // cena: IK de dois ossos para braços e pernas, dedos dobrados em volta da palma.
-  const look = { model: "assets/models/avatar.glb", outfit: "#1c1d22", ...avatar };
+  const look = { model: "assets/models/avatar.glb", ...avatar };
   const V3 = THREE.Vector3;
   const Q = THREE.Quaternion;
   const wpos = (o) => o.getWorldPosition(new V3());
@@ -1077,7 +645,20 @@ export function buildRoom(avatar = {}) {
   }
 
   let person = null;
-  new GLTFLoader().load(look.model, (gltf) => (person = setupPerson(gltf.scene)), undefined, (e) => console.warn("avatar:", e));
+  // avisa a tela de boot (boot.js) do andamento do download do modelo
+  const bootSignal = (type, detail) => window.dispatchEvent(new CustomEvent("boot:" + type, { detail }));
+  new GLTFLoader().load(
+    look.model,
+    (gltf) => {
+      person = setupPerson(gltf.scene);
+      bootSignal("ready");
+    },
+    (e) => e.total && bootSignal("progress", e.loaded / e.total),
+    (e) => {
+      console.warn("avatar:", e);
+      bootSignal("ready");
+    }
+  );
 
   // Nuvem de pontos sobre a superfície do modelo já posado. A pele é calculada na
   // CPU a cada quadro (a pose respira e a cabeça se mexe) e os pontos são sorteados
@@ -1257,8 +838,6 @@ export function buildRoom(avatar = {}) {
       if (o.isBone) B[o.name] = o;
       if (!o.isMesh) return;
       o.frustumCulled = false;
-      o.castShadow = true;
-      o.receiveShadow = true;
       // sem chapéu e sem bigode: careca, como o Morpheus
       if (o.name === "Wolf3D_Headwear" || o.name === "Wolf3D_Beard") {
         o.visible = false;
@@ -1428,131 +1007,6 @@ export function buildRoom(avatar = {}) {
     };
   }
 
-  // --- Luz geral ----------------------------------------------------------
-  // luz suave no rosto, como o reflexo branco da tela
-  const faceLight = new THREE.PointLight(0xdfe6ff, 1.1, 1.6, 1.4);
-  faceLight.position.set(-0.35, 1.38, -0.55);
-  group.add(faceLight);
-  group.add(new THREE.AmbientLight(0x1a2744, 0.7));
-  // luzes de contorno vindas das telas (desenham a silhueta do personagem)
-  const rim = new THREE.DirectionalLight(0x4ade80, 2.6);
-  rim.position.set(1.4, 2.0, -1.6);
-  group.add(rim);
-  const rim2 = new THREE.DirectionalLight(0x818cf8, 1.6);
-  rim2.position.set(-1.6, 1.8, -1.4);
-  group.add(rim2);
-  // luz suave por trás da câmera para as costas não ficarem pretas
-  const fill = new THREE.PointLight(0x6d7fd6, 1.6, 4, 1.5);
-  fill.position.set(0.6, 1.7, 1.6);
-  group.add(fill);
-  // luz suave de destaque no personagem, vinda de trás/direita
-  const key = new THREE.SpotLight(0xc7d2fe, 7, 5, 0.5, 1, 1.5);
-  key.position.set(1.3, 2.1, 1.5);
-  key.target.position.copy(HEAD).add(new THREE.Vector3(0, -0.25, 0));
-  key.castShadow = true;
-  key.shadow.mapSize.set(2048, 2048);
-  key.shadow.bias = -0.0005;
-  key.shadow.radius = 4;
-  group.add(key, key.target);
-
-  // Feixe de luar volumétrico: raymarching dentro de uma caixa que envolve o feixe.
-  // Cada amostra é projetada de volta na janela; se cair no vidro (e não na
-  // esquadria), está iluminada. Assim aparecem os "raios" com a sombra da cruz.
-  const WIN = { x: win.position.x, y: win.position.y, z: -1.715, hw: 0.72, hh: 0.45 };
-  const LDIR = new THREE.Vector3(0.42, -1.0, 1.05).normalize();
-  const shaftUniforms = {
-    uTime: { value: 0 },
-    uOpacity: { value: 1 },
-    uWin: { value: new THREE.Vector4(WIN.x, WIN.y, WIN.hw, WIN.hh) },
-    uWinZ: { value: WIN.z },
-    uDir: { value: LDIR },
-    uMin: { value: new THREE.Vector3() },
-    uMax: { value: new THREE.Vector3() },
-  };
-  const shaftMat = new THREE.ShaderMaterial({
-    uniforms: shaftUniforms,
-    vertexShader: `
-      varying vec3 vW;
-      void main() {
-        vec4 w = modelMatrix * vec4(position, 1.0);
-        vW = w.xyz;
-        gl_Position = projectionMatrix * viewMatrix * w;
-      }`,
-    fragmentShader: `
-      uniform float uTime, uOpacity, uWinZ;
-      uniform vec4 uWin;
-      uniform vec3 uDir, uMin, uMax;
-      varying vec3 vW;
-      float hash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
-      float noise(vec3 p) {
-        vec3 i = floor(p); vec3 f = fract(p); f = f * f * (3.0 - 2.0 * f);
-        return mix(mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x), mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
-                   mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x), mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
-      }
-      float lit(vec3 p) {
-        float t = (p.z - uWinZ) / uDir.z;
-        if (t <= 0.0 || p.y < 0.0) return 0.0;
-        vec2 q = p.xy - uDir.xy * t - uWin.xy;
-        // borda suave do vidro e a sombra da cruz da esquadria
-        float inside = smoothstep(0.0, 0.03, uWin.z - abs(q.x)) * smoothstep(0.0, 0.03, uWin.w - abs(q.y));
-        float bars = smoothstep(0.012, 0.03, abs(q.x)) * smoothstep(0.012, 0.03, abs(q.y - 0.05));
-        return inside * bars * exp(-t * 0.35);
-      }
-      void main() {
-        vec3 ro = cameraPosition;
-        vec3 rd = normalize(vW - ro);
-        vec3 t0 = (uMin - ro) / rd;
-        vec3 t1 = (uMax - ro) / rd;
-        vec3 tmin = min(t0, t1);
-        vec3 tmax = max(t0, t1);
-        float tn = max(max(max(tmin.x, tmin.y), tmin.z), 0.0);
-        float tf = min(min(tmax.x, tmax.y), tmax.z);
-        if (tf <= tn) discard;
-        const int STEPS = 40;
-        float dt = (tf - tn) / float(STEPS);
-        float t = tn + dt * hash(vec3(gl_FragCoord.xy, uTime));
-        float acc = 0.0;
-        for (int i = 0; i < STEPS; i++) {
-          vec3 p = ro + rd * t;
-          float l = lit(p);
-          if (l > 0.0) {
-            float n = noise(p * 4.0 + vec3(0.0, -uTime * 0.12, uTime * 0.07)) * 0.7 + 0.3;
-            acc += l * n * dt;
-          }
-          t += dt;
-        }
-        float a = clamp(acc * 1.1, 0.0, 1.0) * uOpacity;
-        gl_FragColor = vec4(vec3(0.55, 0.66, 1.0) * a, a);
-      }`,
-    transparent: true,
-    depthWrite: false,
-    depthTest: false,
-    side: THREE.BackSide,
-    blending: THREE.AdditiveBlending,
-  });
-  Object.defineProperty(shaftMat, "opacity", { get: () => shaftUniforms.uOpacity.value, set: (v) => (shaftUniforms.uOpacity.value = v) });
-  mats.push(shaftMat);
-  {
-    const pts = [];
-    [-1, 1].forEach((sx) =>
-      [-1, 1].forEach((sy) => {
-        const top = new THREE.Vector3(WIN.x + sx * WIN.hw, WIN.y + sy * WIN.hh, WIN.z);
-        pts.push(top, top.clone().addScaledVector(LDIR, top.y / -LDIR.y));
-      })
-    );
-    const box = new THREE.Box3().setFromPoints(pts);
-    box.min.y = 0;
-    shaftUniforms.uMin.value.copy(box.min);
-    shaftUniforms.uMax.value.copy(box.max);
-    const size = box.getSize(new THREE.Vector3());
-    const shaft = new THREE.Mesh(new THREE.BoxGeometry(size.x, size.y, size.z), shaftMat);
-    box.getCenter(shaft.position);
-    shaft.renderOrder = 5;
-    shaft.frustumCulled = false;
-    shaft.visible = false; // no holograma não há janela nem luar
-    group.add(shaft);
-  }
-
   // Cortina de código caindo no escuro atrás do personagem (visível na abertura)
   const wallRain = holoMaterial();
   wallRain.uniforms.uColor.value = new THREE.Color(0x16a34a);
@@ -1596,15 +1050,8 @@ export function buildRoom(avatar = {}) {
   function update(time, dt) {
     holoUniforms.uTime.value = time;
     HOLO_TIME.value = time;
-    shaftUniforms.uTime.value = time;
     if (!reduce) {
       if (person) person.update(time);
-      winU.uTime.value = time;
-      rackLeds.forEach((l) => (l.visible = Math.sin(time * l.userData.rate + l.userData.phase) > -0.2));
-      // o neon às vezes pisca
-      const flick = Math.sin(time * 0.7) > 0.97 && Math.random() < 0.5 ? 0.25 : 1;
-      neonMat.color.setScalar(flick);
-      neonLight.intensity = 3 * flick;
       // LEDs do switch
       leds.forEach((l) => (l.visible = Math.sin(time * 9 + l.userData.phase * 3) > -0.3 || Math.random() < 0.1));
       // vapor
@@ -1640,10 +1087,6 @@ export function buildRoom(avatar = {}) {
 
   // --- Holograma ---------------------------------------------------------
   // o quarto some: fica só a mesa flutuando sobre uma grade, no meio da chuva de código
-  group.children.slice(shellStart, shellEnd).forEach((o) => (o.visible = false));
-  group.traverse((o) => {
-    if (o.isLight) o.visible = false;
-  });
   const grid = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), holoGrid());
   grid.rotation.x = -Math.PI / 2;
   mats.push(grid.material);

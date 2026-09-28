@@ -6,7 +6,6 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
-import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { PROFILE as P } from "./data.js";
 import { buildRoom, HEAD } from "./room.js";
 
@@ -71,22 +70,12 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setClearColor(0x000000, 1);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
-// versão para PC: sombras suaves e reflexos de ambiente
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const labelRenderer = new CSS2DRenderer({ element: $("labels") });
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0x000000, 5, 14);
 const camera = new THREE.PerspectiveCamera(45, 1, 0.005, 200);
-{
-  // reflexo suave de um estúdio nos materiais metálicos, couro e pele
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 0.18;
-  pmrem.dispose();
-}
 
 // Pós-processamento em HDR com MSAA: bloom nas telas, LEDs e neurônios,
 // depois um passe "de cinema" (aberração cromática, grão, vinheta, distorção no mergulho)

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="booting">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -17,6 +17,15 @@
   </script>
 </head>
 <body>
+  <!-- Tela de boot estilo terminal enquanto o modelo 3D carrega -->
+  <div class="boot" id="boot" role="status" aria-live="polite">
+    <div class="boot-inner">
+      <pre class="boot-log" id="bootLog"></pre>
+      <div class="boot-bar" aria-hidden="true"><span id="bootBar"></span></div>
+      <p class="boot-pct" id="bootPct" aria-hidden="true">0%</p>
+    </div>
+    <p class="boot-skip">clique ou aperte qualquer tecla para pular</p>
+  </div>
   <main>
     <!-- Scroll "preso": a câmera entra na cabeça do personagem e o cérebro vira o mapa neural 3D -->
     <section id="journey" aria-label="Entrando na mente">
@@ -87,6 +96,7 @@
     <p><span id="footName"></span> · <a id="linkedin" href="#" target="_blank" rel="noopener">LinkedIn</a></p>
   </footer>
 
+  <script type="module" src="assets/js/boot.js"></script>
   <script type="module" src="assets/js/main.js"></script>
 </body>
 </html>
