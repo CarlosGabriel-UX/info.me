@@ -72,6 +72,18 @@ export const PROFILE = {
     { id: "en", label: "Inglês", category: "idiomas", status: "Técnico/Leitura", detail: "Documentações, interfaces e comandos de equipamentos de rede e ferramentas de TI" },
   ],
 
+  // Linha do tempo (comando "timeline" no terminal): cada etapa acende os neurônios em "ids".
+  // Só as datas das qualificações vêm do currículo; a ordem das outras etapas é aproximada. Edite à vontade.
+  timeline: [
+    { when: "base", title: "Perfil e idiomas", ids: ["pt", "en", "comunicacao", "problemas", "aprendizado"] },
+    { when: "início", title: "Técnico em Segurança Cibernética no Senac", ids: ["tsc", "disciplina", "suporte", "windows", "linux"] },
+    { when: "trilha CCNA", title: "Módulo 1: Introduction to Networks", ids: ["ccna-trilha", "cert-itn", "tcpip", "subnet", "packettracer"] },
+    { when: "trilha CCNA", title: "Módulo 2: Switching, Routing, and Wireless Essentials", ids: ["cert-srwe", "vlan", "routing", "etherchannel", "stp", "dhcp", "wlan", "l2sec"] },
+    { when: "mai/2026", title: "Qualificação em Operação de Redes de Computadores", ids: ["cert-redes", "wireshark", "ad"] },
+    { when: "set/2026", title: "Qualificação em Segurança da Informação", ids: ["cert-seginfo", "pfsense", "boaspraticas", "python"] },
+    { when: "agora", title: "Módulo 3 da CCNA e busca pelo primeiro estágio em TI", ids: [] },
+  ],
+
   links: [
     { from: "tsc", to: "cert-seginfo", why: "Qualificação técnica concluída dentro do curso técnico" },
     { from: "tsc", to: "cert-redes", why: "Qualificação técnica concluída dentro do curso técnico" },

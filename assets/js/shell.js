@@ -24,6 +24,11 @@ const item = (mark, cls, n) =>
   }`;
 const err = (t) => `<span class="r">${t}</span>`;
 
+// Desafio CTF: a flag fica só em base64 no código, para não aparecer num Ctrl+F
+const SECRET = "ZmxhZ3ttM250M19kM19jNHJsMHNfNGIzcnQ0fQ==";
+const CV_URL = "assets/cv-carlos-gabriel.pdf";
+let hints = 0;
+
 // ---------------------------------------------------------------------------
 // Comandos
 // ---------------------------------------------------------------------------
@@ -38,6 +43,7 @@ const COMMANDS = {
           .map(([k, c]) => `  <span class="ok">${esc(pad(k + (c.args ? " " + c.args : ""), 22))}</span><span class="m">${esc(c.desc)}</span>`),
         ``,
         `<span class="m">dica: Tab completa, ↑ ↓ repetem comandos, Esc fecha.</span>`,
+        `<span class="y">psst:</span> <span class="m">tem uma flag escondida neste site. digite</span> <span class="ok">hint</span> <span class="m">se travar.</span>`,
       ].join("\n"),
   },
   whoami: {
@@ -77,10 +83,106 @@ const COMMANDS = {
   },
   ls: {
     desc: "áreas do cérebro",
-    run: () =>
-      cats
-        .map((c) => `<span style="color:${c.color}">${esc(c.id)}/</span> <span class="m">${byCat(c.id).length} itens</span>`)
-        .join("\n"),
+    run: (a) =>
+      [
+        ...(a.some((x) => /^-\w*a/.test(x)) ? [`<span class="m">./  ../</span>  <span class="y">.segredo</span>`] : []),
+        ...cats.map((c) => `<span style="color:${c.color}">${esc(c.id)}/</span> <span class="m">${byCat(c.id).length} itens</span>`),
+      ].join("\n"),
+  },
+  cat: {
+    args: "<arquivo>",
+    run: (a) => {
+      const f = (a[0] || "").replace(/^\.\//, "");
+      if (f === ".segredo")
+        return [
+          `<span class="m"># você achou um arquivo escondido. o conteúdo está codificado:</span>`,
+          `<span class="y">${SECRET}</span>`,
+        ].join("\n");
+      const c = f && catFor(f.replace(/\/$/, ""));
+      if (c) return COMMANDS.skills.run([c.id]);
+      return err(`cat: ${esc(a[0] || "")}: arquivo não encontrado`);
+    },
+  },
+  base64: {
+    args: "-d <texto>",
+    run: (a) => {
+      const txt = a.filter((x) => !x.startsWith("-")).join("");
+      if (!a.some((x) => x === "-d" || x === "--decode")) return err("use base64 -d &lt;texto&gt; para decodificar");
+      try {
+        return `<span class="hi">${esc(atob(txt))}</span>`;
+      } catch (e) {
+        return err("base64: entrada inválida");
+      }
+    },
+  },
+  submit: {
+    args: "<flag>",
+    run: (a) => {
+      if (!a[0]) return err("use submit flag{...}");
+      if (a.join(" ").trim() !== atob(SECRET))
+        return err("flag incorreta. continue tentando, ou digite hint.");
+      return [
+        `<span class="ok">   ___________</span>`,
+        `<span class="ok">  '._==_==_=_.'</span>`,
+        `<span class="ok">  .-\\:      /-.</span>    <span class="hi">FLAG CORRETA!</span>`,
+        `<span class="ok"> | (|:.     |) |</span>   <span class="v">Você tem olho de analista de segurança.</span>`,
+        `<span class="ok">  '-|:.     |-'</span>    <span class="v">Me manda um print no</span> <a href="${esc(P.linkedin)}" target="_blank" rel="noopener">LinkedIn</a><span class="v">,</span>`,
+        `<span class="ok">    \\::.    /</span>      <span class="v">vou gostar de saber quem achou.</span>`,
+        `<span class="ok">     '::. .'</span>`,
+        `<span class="ok">       ) (</span>`,
+        `<span class="ok">     _.' '._</span>`,
+      ].join("\n");
+    },
+  },
+  hint: {
+    run: () => {
+      const tips = [
+        "nem todo arquivo aparece num ls comum.",
+        "no Linux, arquivos que começam com ponto ficam escondidos. tente ls -a.",
+        "leia o arquivo com cat. o texto que aparece está em base64.",
+        "decodifique com base64 -d &lt;texto&gt; e envie o resultado com submit.",
+      ];
+      const t = tips[Math.min(hints++, tips.length - 1)];
+      return `<span class="y">dica ${Math.min(hints, tips.length)}/${tips.length}:</span> <span class="v">${t}</span>`;
+    },
+  },
+  timeline: {
+    desc: "conta minha trajetória no mapa",
+    run: (a) => {
+      if (a[0] === "stop" || a[0] === "parar") {
+        window.dispatchEvent(new CustomEvent("map:timeline", { detail: { stop: true } }));
+        return `<span class="m">linha do tempo parada</span>`;
+      }
+      print(`<span class="m">acendendo os neurônios na ordem em que aprendi. Esc duas vezes para parar.</span>`, "res");
+      window.dispatchEvent(new CustomEvent("map:timeline", { detail: {} }));
+      return null;
+    },
+  },
+  theme: {
+    args: "[verde|azul|vermelho]",
+    desc: "troca as cores do cérebro",
+    run: (a) => {
+      const detail = { name: a[0] ? norm(a[0]) : null, ok: false };
+      window.dispatchEvent(new CustomEvent("map:theme", { detail }));
+      if (!detail.themes) return err("o mapa ainda não carregou");
+      if (!a[0])
+        return `temas: ${detail.themes
+          .map((t) => (t === detail.current ? `<span class="hi">${t}</span> <span class="m">(atual)</span>` : t))
+          .join(", ")}\n<span class="m">use theme &lt;nome&gt;</span>`;
+      return detail.ok ? `<span class="ok">tema ${esc(detail.name)} aplicado</span>` : err(`tema não encontrado: ${esc(a[0])}`);
+    },
+  },
+  cv: {
+    desc: "baixa meu currículo em PDF",
+    run: () => {
+      const a = document.createElement("a");
+      a.href = CV_URL;
+      a.download = CV_URL.split("/").pop();
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      return `<span class="m">baixando</span> <a href="${CV_URL}" download>${esc(a.download)}</a>`;
+    },
   },
   cd: {
     args: "<área>",
@@ -133,7 +235,7 @@ const COMMANDS = {
   clear: { desc: "limpa a tela", run: () => (out.innerHTML = "", null) },
   exit: { desc: "fecha o terminal", run: () => (close(), null) },
 };
-const ALIASES = { "?": "help", ajuda: "help", "formação": "formacao", certificados: "certs", resumo: "sobre", cls: "clear", sair: "exit" };
+const ALIASES = { curriculo: "cv", "currículo": "cv", tema: "theme", dica: "hint",  "?": "help", ajuda: "help", "formação": "formacao", certificados: "certs", resumo: "sobre", cls: "clear", sair: "exit" };
 
 function focusMap(q) {
   if (!q) {
@@ -163,6 +265,8 @@ function print(html, cls = "") {
 
 function exec(line) {
   print(PROMPT + `<span class="cmd">${esc(line)}</span>`);
+  const pipe = line.match(/^\s*echo\s+["']?([^"'|]+?)["']?\s*\|\s*base64\s+(-d|--decode)\s*$/);
+  if (pipe) line = `base64 -d ${pipe[1]}`;
   const [raw, ...args] = line.trim().split(/\s+/);
   if (!raw) return;
   history.push(line);
@@ -211,6 +315,13 @@ input.addEventListener("keydown", (e) => {
   e.stopPropagation();
 });
 
+// a linha do tempo roda no mapa; aqui cada etapa vira uma linha de saída
+window.addEventListener("map:timeline-step", (e) => {
+  const { i, step } = e.detail;
+  if (i < 0) return;
+  print(`<span class="y">[${esc(step.when)}]</span> <span class="v">${esc(step.title)}</span>`, "tl");
+});
+
 let greeted = false;
 function open() {
   root.hidden = false;
@@ -219,7 +330,7 @@ function open() {
     greeted = true;
     print(`<span class="m">info.me shell · digite</span> <span class="ok">help</span> <span class="m">para ver os comandos</span>`);
   }
-  requestAnimationFrame(() => input.focus());
+  input.focus({ preventScroll: true });
 }
 function close() {
   root.hidden = true;
@@ -240,3 +351,10 @@ window.addEventListener("keydown", (e) => {
   e.preventDefault();
   toggle();
 });
+
+// Para quem abre o console do navegador
+console.log(
+  "%cinfo.me%c  curioso? aperte ' no mapa e digite ls -a. tem uma flag escondida.",
+  "color:#22ff88;font:bold 14px monospace",
+  "color:#86efac;font:12px monospace"
+);

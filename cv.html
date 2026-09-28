@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Currículo · Carlos Gabriel</title>
+  <!-- Fonte do assets/cv-carlos-gabriel.pdf. Lê tudo de assets/js/data.js; para regerar o PDF, veja o README. -->
+  <style>
+    @page { size: A4; margin: 14mm 15mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0 auto;
+      max-width: 800px;
+      padding: 24px;
+      font: 10.5pt/1.45 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      color: #111827;
+      background: #fff;
+    }
+    @media print { body { padding: 0; max-width: none; } }
+    header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; border-bottom: 2px solid #0f766e; padding-bottom: 10px; }
+    h1 { margin: 0; font-size: 20pt; letter-spacing: -0.02em; line-height: 1.15; }
+    .role { margin: 2px 0 0; color: #374151; }
+    .meta { flex: none; text-align: right; font-size: 9.5pt; color: #374151; white-space: nowrap; }
+    .meta a { color: #0f766e; text-decoration: none; }
+    h2 {
+      margin: 16px 0 6px;
+      font-size: 10pt;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #0f766e;
+    }
+    p { margin: 0; }
+    ul { margin: 0; padding: 0; list-style: none; }
+    li { margin: 0 0 5px; }
+    li strong { font-weight: 600; }
+    .sub { color: #4b5563; }
+    .tag { font-size: 8.5pt; color: #0f766e; border: 1px solid #99f6e4; border-radius: 4px; padding: 0 5px; margin-left: 4px; white-space: nowrap; }
+    .grid { display: grid; grid-template-columns: 150px 1fr; gap: 3px 12px; }
+    .grid dt { font-weight: 600; }
+    .grid dd { margin: 0; color: #1f2937; }
+    footer { margin-top: 18px; font-size: 8.5pt; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1 id="name"></h1>
+      <p class="role" id="role"></p>
+    </div>
+    <div class="meta"><div id="loc"></div><a id="li" href="#"></a></div>
+  </header>
+
+  <h2>Resumo</h2>
+  <p id="summary"></p>
+
+  <h2>Formação</h2>
+  <ul id="edu"></ul>
+
+  <h2>Certificados</h2>
+  <ul id="certs"></ul>
+
+  <h2>Conhecimentos</h2>
+  <dl class="grid" id="skills"></dl>
+
+  <footer>Versão interativa com mapa neural 3D: o site info.me de <span id="foot"></span>.</footer>
+
+  <script type="module">
+    import { PROFILE as P } from "./assets/js/data.js";
+    const $ = (id) => document.getElementById(id);
+    const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    const byCat = (id) => P.nodes.filter((n) => n.category === id);
+    $("name").textContent = P.fullName;
+    $("role").textContent = P.role;
+    $("loc").textContent = P.location;
+    $("li").href = P.linkedin;
+    $("li").textContent = P.linkedin.replace(/^https?:\/\//, "");
+    $("summary").textContent = P.summary;
+    $("foot").textContent = P.name;
+    const item = (n) =>
+      `<li><strong>${esc(n.label)}</strong>${n.status ? `<span class="tag">${esc(n.status)}</span>` : ""}${
+        n.detail ? `<br><span class="sub">${esc(n.detail)}</span>` : ""
+      }</li>`;
+    $("edu").innerHTML = byCat("formacao").map(item).join("");
+    $("certs").innerHTML = byCat("certs").map(item).join("");
+    $("skills").innerHTML = P.categories
+      .filter((c) => !["formacao", "certs"].includes(c.id))
+      .map(
+        (c) =>
+          `<dt>${esc(c.label)}</dt><dd>${byCat(c.id)
+            .map((n) => esc(n.label) + (n.status ? ` (${esc(n.status)})` : ""))
+            .join(", ")}</dd>`
+      )
+      .join("");
+    document.body.dataset.ready = "1";
+  </script>
+</body>
+</html>
