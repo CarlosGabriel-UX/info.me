@@ -34,8 +34,11 @@
 
         <!-- Interface do mapa -->
         <div class="map-ui" id="mapUi">
-          <button class="btn primary" id="exploreBtn" type="button">Explorar em 3D</button>
-          <p class="map-hint" id="mapHint">Clique num neurônio para ver os detalhes</p>
+          <div class="map-actions">
+            <button class="btn primary" id="exploreBtn" type="button">Explorar em 3D</button>
+            <button class="btn mono" type="button" data-shell title="Abrir o terminal (tecla ')">Terminal &gt;_</button>
+          </div>
+          <p class="map-hint" id="mapHint">Clique num neurônio para ver os detalhes · aperte <kbd>'</kbd> para abrir o terminal</p>
         </div>
 
         <div class="explore-bar" id="exploreBar">
@@ -44,6 +47,7 @@
             <input id="search" type="search" placeholder="Buscar skill ou certificado" list="searchList" autocomplete="off">
             <datalist id="searchList"></datalist>
           </label>
+          <button class="btn mono" type="button" data-shell title="Abrir o terminal (tecla ')">Terminal &gt;_</button>
           <button class="btn" id="resetBtn" type="button" title="Voltar à visão geral">Visão geral</button>
           <button class="btn" id="exitBtn" type="button" title="Sair do modo 3D (Esc)">Sair ✕</button>
         </div>
@@ -84,11 +88,23 @@
     </section>
   </main>
 
+  <!-- Terminal interativo por cima do mapa -->
+  <section class="shell" id="shell" aria-label="Terminal interativo" hidden>
+    <div class="term-bar"><i></i><i></i><i></i><span>visitante@info.me: ~ — bash</span><button class="shell-close" id="shellClose" type="button" aria-label="Fechar terminal">✕</button></div>
+    <div class="term-body shell-out" id="shellOut" aria-live="polite"></div>
+    <label class="shell-line term-body">
+      <span aria-hidden="true"><span class="p-user">visitante@info.me</span><span class="p-sep">:</span><span class="p-dir">~</span><span class="p-sep">$</span></span>
+      <span class="sr-only">Comando</span>
+      <input id="shellInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+    </label>
+  </section>
+
   <footer>
     <p><span id="footName"></span> · <a id="linkedin" href="#" target="_blank" rel="noopener">LinkedIn</a></p>
   </footer>
 
   <script type="module" src="assets/js/terminal.js"></script>
   <script type="module" src="assets/js/main.js"></script>
+  <script type="module" src="assets/js/shell.js"></script>
 </body>
 </html>
