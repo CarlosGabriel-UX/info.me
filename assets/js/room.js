@@ -2,6 +2,7 @@
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { Reflector } from "three/addons/objects/Reflector.js";
 import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
 
 RectAreaLightUniformsLib.init();
@@ -352,8 +353,65 @@ export function buildRoom(avatar = {}) {
   }
 
   // --- Quarto -------------------------------------------------------------
-  const floor = add(new THREE.PlaneGeometry(14, 14), std(0x0a0c11, { roughness: 0.7, metalness: 0.2 }));
+  // piso escuro e polido: reflete as telas e as luzes, com o reflexo borrado
+  const floor = new Reflector(new THREE.PlaneGeometry(14, 14), {
+    textureWidth: Math.round(window.innerWidth * 0.6),
+    textureHeight: Math.round(window.innerHeight * 0.6),
+    clipBias: 0.003,
+    multisample: 0,
+    shader: {
+      uniforms: {
+        color: { value: null },
+        tDiffuse: { value: null },
+        textureMatrix: { value: null },
+        opacity: { value: 1 },
+      },
+      vertexShader: Reflector.ReflectorShader.vertexShader.replace(
+        "varying vec4 vUv;",
+        "varying vec4 vUv;\nvarying vec3 vWorld;"
+      ).replace("vUv = textureMatrix", "vWorld = (modelMatrix * vec4(position, 1.0)).xyz;\n\t\t\tvUv = textureMatrix"),
+      fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float opacity;
+        varying vec4 vUv;
+        varying vec3 vWorld;
+        float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+        void main() {
+          vec2 uv = vUv.xy / vUv.w;
+          // desfoque em disco + um pouco de ruído, como um piso envernizado
+          vec3 acc = vec3(0.0);
+          float r = 0.006;
+          for (int i = 0; i < 12; i++) {
+            float a = float(i) * 2.39996;
+            float d = sqrt(float(i) + 0.5) / 3.5;
+            acc += texture2D(tDiffuse, uv + vec2(cos(a), sin(a)) * d * r).rgb;
+          }
+          acc /= 12.0;
+          float grain = 0.85 + 0.15 * hash(floor(vWorld.xz * 180.0));
+          // o reflexo some com a distância do centro da sala
+          float fade = 1.0 - smoothstep(1.5, 5.0, length(vWorld.xz));
+          gl_FragColor = vec4(acc * 0.3 * grain * fade * opacity, 1.0);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }`,
+    },
+  });
   floor.rotation.x = -Math.PI / 2;
+  floor.position.y = 0.0015;
+  // o reflexo é somado por cima do piso de verdade, que recebe luz e sombra
+  floor.material.transparent = true;
+  floor.material.depthWrite = false;
+  floor.material.blending = THREE.AdditiveBlending;
+  floor.material.uniforms.opacity.value = 1;
+  // a opacidade da sala é aplicada no uniform (main.js ajusta material.opacity)
+  Object.defineProperty(floor.material, "opacity", {
+    get: () => floor.material.uniforms.opacity.value,
+    set: (v) => (floor.material.uniforms.opacity.value = v),
+  });
+  mats.push(floor.material);
+  group.add(floor);
+  const floorBase = add(new THREE.PlaneGeometry(14, 14), std(0x0a0c11, { roughness: 0.55, metalness: 0.2 }));
+  floorBase.rotation.x = -Math.PI / 2;
   const rug = add(new THREE.CircleGeometry(1.35, 64), std(0x111726, { roughness: 1 }), 0, 0.003, -0.2);
   rug.rotation.x = -Math.PI / 2;
 
@@ -374,6 +432,15 @@ export function buildRoom(avatar = {}) {
     [1.5, 0.03, 0, 0.05],
   ].forEach(([w, h, x, y]) => add(new THREE.BoxGeometry(w, h, 0.05), frameMat, win.position.x + x, win.position.y + y, -1.72));
   add(new THREE.BoxGeometry(1.7, 0.04, 0.16), frameMat, win.position.x, win.position.y - 0.53, -1.67);
+  // luar entrando pela janela: projeta a sombra da esquadria no chão
+  const moon = new THREE.SpotLight(0x8fa6e8, 14, 9, 0.32, 0.45, 1.2);
+  moon.position.set(win.position.x - 0.9, win.position.y + 1.6, -3.6);
+  moon.target.position.set(-0.55, 0, 0.35);
+  moon.castShadow = true;
+  moon.shadow.mapSize.set(2048, 2048);
+  moon.shadow.bias = -0.0004;
+  moon.shadow.radius = 3;
+  group.add(moon, moon.target);
   const moonLight = new THREE.RectAreaLight(0x6d83c9, 0.55, 1.5, 0.95);
   moonLight.position.set(win.position.x, win.position.y, -1.7);
   moonLight.lookAt(win.position.x, win.position.y - 0.4, 0);
@@ -593,7 +660,7 @@ export function buildRoom(avatar = {}) {
   };
   function holoMaterial() {
     const m = new THREE.ShaderMaterial({
-      uniforms: { ...holoUniforms, uColor: { value: HOLO }, uOpacity: { value: 1 } },
+      uniforms: { ...holoUniforms, uColor: { value: HOLO }, uOpacity: { value: 1 }, uGain: { value: 1 } },
       vertexShader: `
         varying vec3 vN;
         varying vec3 vV;
@@ -609,6 +676,7 @@ export function buildRoom(avatar = {}) {
         uniform float uCell;
         uniform vec3 uColor;
         uniform float uOpacity;
+        uniform float uGain;
         varying vec3 vN;
         varying vec3 vV;
         float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -629,8 +697,8 @@ export function buildRoom(avatar = {}) {
           float glyph = texture2D(uGlyphs, guv).r;
           vec3 col = mix(uColor * 0.8, vec3(0.8, 1.0, 0.85), isHead);
           float rain = glyph * (0.15 + 1.5 * trail);
-          float a = (rain + 0.04 + 0.32 * f) * uOpacity;
-          gl_FragColor = vec4((col * rain + uColor * (0.04 + 0.32 * f)) * uOpacity, a);
+          float a = (rain + 0.04 + 0.32 * f) * uOpacity * uGain;
+          gl_FragColor = vec4((col * rain + uColor * (0.04 + 0.32 * f)) * uOpacity * uGain, a);
         }`,
       transparent: true,
       depthWrite: false,
@@ -694,6 +762,8 @@ export function buildRoom(avatar = {}) {
       if (o.isBone) B[o.name] = o;
       if (!o.isMesh) return;
       o.frustumCulled = false;
+      o.castShadow = true;
+      o.receiveShadow = true;
       // sem chapéu e sem bigode: careca, como o Morpheus
       if (o.name === "Wolf3D_Headwear" || o.name === "Wolf3D_Beard") {
         o.visible = false;
@@ -872,12 +942,118 @@ export function buildRoom(avatar = {}) {
   const key = new THREE.SpotLight(0xc7d2fe, 7, 5, 0.5, 1, 1.5);
   key.position.set(1.3, 2.1, 1.5);
   key.target.position.copy(HEAD).add(new THREE.Vector3(0, -0.25, 0));
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.bias = -0.0005;
+  key.shadow.radius = 4;
   group.add(key, key.target);
-  // "ambilight" atrás dos monitores lavando a parede
-  const wash = new THREE.RectAreaLight(0x6366f1, 5, 1.6, 0.25);
-  wash.position.set(0, 1.25, -1.45);
-  wash.lookAt(0, 1.6, -1.75);
-  group.add(wash);
+
+  // Feixe de luar volumétrico: raymarching dentro de uma caixa que envolve o feixe.
+  // Cada amostra é projetada de volta na janela; se cair no vidro (e não na
+  // esquadria), está iluminada. Assim aparecem os "raios" com a sombra da cruz.
+  const WIN = { x: win.position.x, y: win.position.y, z: -1.715, hw: 0.72, hh: 0.45 };
+  const LDIR = new THREE.Vector3(0.42, -1.0, 1.05).normalize();
+  const shaftUniforms = {
+    uTime: { value: 0 },
+    uOpacity: { value: 1 },
+    uWin: { value: new THREE.Vector4(WIN.x, WIN.y, WIN.hw, WIN.hh) },
+    uWinZ: { value: WIN.z },
+    uDir: { value: LDIR },
+    uMin: { value: new THREE.Vector3() },
+    uMax: { value: new THREE.Vector3() },
+  };
+  const shaftMat = new THREE.ShaderMaterial({
+    uniforms: shaftUniforms,
+    vertexShader: `
+      varying vec3 vW;
+      void main() {
+        vec4 w = modelMatrix * vec4(position, 1.0);
+        vW = w.xyz;
+        gl_Position = projectionMatrix * viewMatrix * w;
+      }`,
+    fragmentShader: `
+      uniform float uTime, uOpacity, uWinZ;
+      uniform vec4 uWin;
+      uniform vec3 uDir, uMin, uMax;
+      varying vec3 vW;
+      float hash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+      float noise(vec3 p) {
+        vec3 i = floor(p); vec3 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x), mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                   mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x), mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+      }
+      float lit(vec3 p) {
+        float t = (p.z - uWinZ) / uDir.z;
+        if (t <= 0.0 || p.y < 0.0) return 0.0;
+        vec2 q = p.xy - uDir.xy * t - uWin.xy;
+        // borda suave do vidro e a sombra da cruz da esquadria
+        float inside = smoothstep(0.0, 0.03, uWin.z - abs(q.x)) * smoothstep(0.0, 0.03, uWin.w - abs(q.y));
+        float bars = smoothstep(0.012, 0.03, abs(q.x)) * smoothstep(0.012, 0.03, abs(q.y - 0.05));
+        return inside * bars * exp(-t * 0.35);
+      }
+      void main() {
+        vec3 ro = cameraPosition;
+        vec3 rd = normalize(vW - ro);
+        vec3 t0 = (uMin - ro) / rd;
+        vec3 t1 = (uMax - ro) / rd;
+        vec3 tmin = min(t0, t1);
+        vec3 tmax = max(t0, t1);
+        float tn = max(max(max(tmin.x, tmin.y), tmin.z), 0.0);
+        float tf = min(min(tmax.x, tmax.y), tmax.z);
+        if (tf <= tn) discard;
+        const int STEPS = 40;
+        float dt = (tf - tn) / float(STEPS);
+        float t = tn + dt * hash(vec3(gl_FragCoord.xy, uTime));
+        float acc = 0.0;
+        for (int i = 0; i < STEPS; i++) {
+          vec3 p = ro + rd * t;
+          float l = lit(p);
+          if (l > 0.0) {
+            float n = noise(p * 4.0 + vec3(0.0, -uTime * 0.12, uTime * 0.07)) * 0.7 + 0.3;
+            acc += l * n * dt;
+          }
+          t += dt;
+        }
+        float a = clamp(acc * 1.1, 0.0, 1.0) * uOpacity;
+        gl_FragColor = vec4(vec3(0.55, 0.66, 1.0) * a, a);
+      }`,
+    transparent: true,
+    depthWrite: false,
+    depthTest: false,
+    side: THREE.BackSide,
+    blending: THREE.AdditiveBlending,
+  });
+  Object.defineProperty(shaftMat, "opacity", { get: () => shaftUniforms.uOpacity.value, set: (v) => (shaftUniforms.uOpacity.value = v) });
+  mats.push(shaftMat);
+  {
+    const pts = [];
+    [-1, 1].forEach((sx) =>
+      [-1, 1].forEach((sy) => {
+        const top = new THREE.Vector3(WIN.x + sx * WIN.hw, WIN.y + sy * WIN.hh, WIN.z);
+        pts.push(top, top.clone().addScaledVector(LDIR, top.y / -LDIR.y));
+      })
+    );
+    const box = new THREE.Box3().setFromPoints(pts);
+    box.min.y = 0;
+    shaftUniforms.uMin.value.copy(box.min);
+    shaftUniforms.uMax.value.copy(box.max);
+    const size = box.getSize(new THREE.Vector3());
+    const shaft = new THREE.Mesh(new THREE.BoxGeometry(size.x, size.y, size.z), shaftMat);
+    box.getCenter(shaft.position);
+    shaft.renderOrder = 5;
+    shaft.frustumCulled = false;
+    group.add(shaft);
+  }
+
+  // Cortina de código caindo no escuro atrás do personagem (visível na abertura)
+  const wallRain = holoMaterial();
+  wallRain.uniforms.uColor.value = new THREE.Color(0x16a34a);
+  wallRain.uniforms.uGain.value = 0.4;
+  mats.push(wallRain);
+  const rainWall = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 4.2), wallRain);
+  rainWall.position.set(3.2, 1.6, 0.6);
+  rainWall.rotation.y = -Math.PI / 2;
+  group.add(rainWall);
 
   // Poeira flutuando na luz do monitor
   const DUST = 140;
@@ -911,6 +1087,7 @@ export function buildRoom(avatar = {}) {
 
   function update(time, dt) {
     holoUniforms.uTime.value = time;
+    shaftUniforms.uTime.value = time;
     if (!reduce) {
       if (person) person.update(time);
       // LEDs do switch
@@ -946,5 +1123,13 @@ export function buildRoom(avatar = {}) {
     }
   }
 
-  return { group, mats, headMats, update };
+  // sombras: todo objeto sólido projeta e recebe sombra
+  group.traverse((o) => {
+    if (o.isMesh && o.material && o.material.isMeshStandardMaterial) {
+      o.castShadow = true;
+      o.receiveShadow = true;
+    }
+  });
+
+  return { group, mats, headMats, update, glyphs };
 }
