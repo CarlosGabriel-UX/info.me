@@ -10,11 +10,6 @@ export const PROFILE = {
   role: "Estudante de Segurança Cibernética · Suporte de TI, Redes & Segurança",
   location: "São Paulo/SP",
   linkedin: "https://linkedin.com/in/carlos-gabriel-368aa32b6",
-  tagline: "Role para baixo e entre na minha mente.",
-  // Personagem 3D: modelo com esqueleto, desenhado como holograma de pontos.
-  avatar: {
-    model: "assets/models/avatar.glb",
-  },
   summary:
     "Estudante do Técnico em Segurança Cibernética no Senac, com duas qualificações técnicas concluídas e trilha Cisco CCNA em andamento. Buscando estágio ou primeira oportunidade em Suporte de TI (N1/N2) e Sistemas.",
 

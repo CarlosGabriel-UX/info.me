@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR" class="booting">
+<html lang="pt-BR" class="intro-on">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -17,28 +17,20 @@
   </script>
 </head>
 <body>
-  <!-- Tela de boot estilo terminal enquanto o modelo 3D carrega -->
-  <div class="boot" id="boot" role="status" aria-live="polite">
-    <div class="boot-inner">
-      <pre class="boot-log" id="bootLog"></pre>
-      <div class="boot-bar" aria-hidden="true"><span id="bootBar"></span></div>
-      <p class="boot-pct" id="bootPct" aria-hidden="true">0%</p>
+  <!-- Abertura: terminal que imprime o perfil e depois dá zoom para dentro do mapa neural -->
+  <div class="term" id="term" role="log" aria-live="polite" aria-label="Terminal com o perfil">
+    <div class="term-win" id="termWin">
+      <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>carlos@info.me: ~ — perfil.sh</span></div>
+      <div class="term-body" id="termBody"></div>
     </div>
-    <p class="boot-skip">clique ou aperte qualquer tecla para pular</p>
+    <p class="term-skip">clique ou aperte qualquer tecla para acelerar · de novo para pular</p>
   </div>
   <main>
-    <!-- Scroll "preso": a câmera entra na cabeça do personagem e o cérebro vira o mapa neural 3D -->
-    <section id="journey" aria-label="Entrando na mente">
+    <!-- Mapa neural 3D -->
+    <section id="journey" aria-label="Mapa neural">
       <div class="stage" id="stage">
         <canvas id="gl" aria-hidden="true"></canvas>
         <div id="labels" aria-hidden="true"></div>
-
-        <header class="intro" id="intro">
-          <p class="hello">Olá, eu sou</p>
-          <h1 id="name"></h1>
-          <p class="role" id="role"></p>
-        </header>
-        <p class="scroll-hint" id="scrollHint"><span id="tagline"></span><span class="arrow" aria-hidden="true">↓</span></p>
 
         <!-- Interface do mapa -->
         <div class="map-ui" id="mapUi">
@@ -96,7 +88,7 @@
     <p><span id="footName"></span> · <a id="linkedin" href="#" target="_blank" rel="noopener">LinkedIn</a></p>
   </footer>
 
-  <script type="module" src="assets/js/boot.js"></script>
+  <script type="module" src="assets/js/terminal.js"></script>
   <script type="module" src="assets/js/main.js"></script>
 </body>
 </html>

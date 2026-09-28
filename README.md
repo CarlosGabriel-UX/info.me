@@ -1,6 +1,6 @@
 # info.me
 
-Site pessoal em 3D: um personagem sentado no computador, num fundo preto. Ao rolar a página, a câmera entra na cabeça dele, o cérebro se expande e vira um mapa neural 3D com formação, certificados e conhecimentos. No botão **Explorar em 3D** dá para girar, dar zoom e mover o mapa, buscar itens e clicar num neurônio para ver os detalhes e o motivo de cada conexão.
+Site pessoal em 3D. Ao abrir, um terminal roda um script que imprime o perfil (nome, função, resumo, formação, certificados e conhecimentos). No fim, a tela dá zoom no cursor e entra num cérebro de partículas que cresce e vira um mapa neural 3D. No botão **Explorar em 3D** dá para girar, dar zoom e mover o mapa, buscar itens e clicar num neurônio para ver os detalhes e o motivo de cada conexão.
 
 ## Rodar localmente
 
@@ -15,7 +15,7 @@ python3 -m http.server 8000
 
 Tudo que aparece no site está em [`assets/js/data.js`](assets/js/data.js):
 
-- `name`, `role`, `summary`, `linkedin`: textos da abertura e do rodapé.
+- `fullName`, `role`, `location`, `summary`, `linkedin`: o que o terminal imprime e o rodapé.
 - `categories`: as regiões do cérebro (cor e posição 3D).
 - `nodes`: cada item (formação, certificado, skill) vira um neurônio ligado à sua região.
 - `links`: conexões extras entre neurônios, cada uma com o motivo que aparece no painel.
@@ -24,9 +24,8 @@ Tudo que aparece no site está em [`assets/js/data.js`](assets/js/data.js):
 
 - `index.html`: estrutura da página e interface do modo explorar.
 - `assets/css/style.css`: estilos.
-- `assets/js/main.js`: cena 3D (three.js), câmera guiada pelo scroll, mapa neural, controles de órbita, busca, painel de detalhes e a lista acessível no fim da página.
-- `assets/js/room.js`: cena de abertura em holograma (mesa flutuando sobre uma grade, telas, chuva de código), a pose do personagem sentado e a nuvem de pontos que desenha o corpo dele.
-- `assets/models/avatar.glb`: personagem 3D (avatar Ready Player Me, o mesmo dos exemplos do three.js). Para trocar, aponte `PROFILE.avatar.model` para outro `.glb` com esqueleto no padrão Mixamo/Ready Player Me.
+- `assets/js/terminal.js`: a abertura em terminal (script digitado, saída com os dados de `data.js` e o zoom final).
+- `assets/js/main.js`: cena 3D (three.js), câmera que se afasta de dentro do cérebro, mapa neural, controles de órbita, busca, painel de detalhes e a lista acessível no fim da página.
 - `assets/vendor/three/`: three.js r169 (licença MIT) incluído no repositório, sem depender de CDN.
 
 ## Deploy
