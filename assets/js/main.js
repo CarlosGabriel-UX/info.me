@@ -6,9 +6,7 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
-import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { PROFILE as P } from "./data.js";
-import { buildRoom, HEAD } from "./room.js";
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const $ = (id) => document.getElementById(id);
@@ -30,9 +28,6 @@ const rand = () => {
 // Textos e lista acessível
 // ---------------------------------------------------------------------------
 const catById = Object.fromEntries(P.categories.map((c) => [c.id, c]));
-$("name").textContent = P.name;
-$("role").textContent = P.role;
-$("tagline").textContent = P.tagline;
 $("summary").textContent = P.summary;
 $("footName").textContent = P.fullName;
 $("linkedin").href = P.linkedin;
@@ -64,29 +59,18 @@ try {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
 } catch (e) {
   $("fallback").hidden = false;
-  $("intro").style.display = "none";
   throw e;
 }
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setClearColor(0x000000, 1);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
-// versão para PC: sombras suaves e reflexos de ambiente
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const labelRenderer = new CSS2DRenderer({ element: $("labels") });
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0x000000, 5, 14);
 const camera = new THREE.PerspectiveCamera(45, 1, 0.005, 200);
-{
-  // reflexo suave de um estúdio nos materiais metálicos, couro e pele
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 0.18;
-  pmrem.dispose();
-}
 
 // Pós-processamento em HDR com MSAA: bloom nas telas, LEDs e neurônios,
 // depois um passe "de cinema" (aberração cromática, grão, vinheta, distorção no mergulho)
@@ -163,71 +147,17 @@ const DOT = radialTexture(32, [
   [1, 0],
 ]);
 
-// Sala com o personagem (assets/js/room.js)
-const R = buildRoom(P.avatar);
-const room = R.group;
-scene.add(room);
-
-// ---------------------------------------------------------------------------
-// Mergulho: túnel de código verde ao redor da câmera enquanto ela entra na cabeça
-// ---------------------------------------------------------------------------
-scene.add(camera);
-const tunnelU = { uTime: { value: 0 }, uFlow: { value: 0 }, uOpacity: { value: 0 }, uGlyphs: { value: R.glyphs } };
-const tunnel = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.6, 0.6, 30, 96, 1, true),
-  new THREE.ShaderMaterial({
-    uniforms: tunnelU,
-    vertexShader: `
-      varying vec2 vUv;
-      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-    fragmentShader: `
-      uniform float uTime, uFlow, uOpacity;
-      uniform sampler2D uGlyphs;
-      varying vec2 vUv;
-      float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-      void main() {
-        const vec2 GRID = vec2(96.0, 420.0);
-        vec2 g = vec2(vUv.x, vUv.y) * GRID;
-        vec2 cell = floor(g);
-        vec2 inCell = fract(g);
-        float seed = hash(vec2(cell.x, 9.1));
-        // gotas correndo pelo túnel em direção à câmera
-        float period = 60.0 + floor(seed * 60.0);
-        float head = fract(uTime * (0.08 + seed * 0.12) + uFlow * (0.6 + seed) + seed * 5.0) * period;
-        float d = mod(head - mod(cell.y, period), period);
-        float trail = exp(-d * 0.09);
-        float isHead = 1.0 - step(1.0, d);
-        float idx = floor(hash(cell + floor(uTime * (2.0 + seed * 6.0))) * 64.0);
-        vec2 guv = (vec2(mod(idx, 8.0), 7.0 - floor(idx / 8.0)) + vec2(1.0 - inCell.x, inCell.y)) / 8.0;
-        float glyph = texture2D(uGlyphs, guv).r;
-        vec3 col = mix(vec3(0.1, 1.0, 0.35), vec3(0.85, 1.0, 0.9), isHead);
-        // some perto da câmera e no fundo, onde a cabeça "acaba"
-        float depthFade = smoothstep(0.5, 0.56, vUv.y) * (1.0 - smoothstep(0.9, 1.0, vUv.y));
-        float a = glyph * (0.08 + 1.4 * trail) * depthFade * uOpacity;
-        gl_FragColor = vec4(col * a, a);
-      }`,
-    transparent: true,
-    depthWrite: false,
-    depthTest: false,
-    side: THREE.BackSide,
-    blending: THREE.AdditiveBlending,
-  })
-);
-// eixo do cilindro apontando para a frente da câmera
-tunnel.rotation.x = -Math.PI / 2;
-tunnel.renderOrder = 10;
-tunnel.visible = false;
-camera.add(tunnel);
-
 // ---------------------------------------------------------------------------
 // Mente: cérebro de partículas + mapa neural
 // ---------------------------------------------------------------------------
+// centro do cérebro; a câmera começa lá dentro, logo depois do zoom no terminal
+const HEAD = new THREE.Vector3(0, 0, 0);
 const mind = new THREE.Group();
 mind.position.copy(HEAD);
 scene.add(mind);
 
 // Forma do cérebro: dois hemisférios com dobras, cerebelo e tronco.
-// O lado da frente (testa) fica em -z, porque o personagem olha para o monitor.
+// O lado da frente (testa) fica em -z.
 const HEMI = { r: [2.1, 2.6, 3.9], cx: 1.5, cy: 0.2 };
 function brainPoint(u, h) {
   const gyri =
@@ -656,7 +586,7 @@ function exitExplore() {
   tween = null;
   hovered = null;
   closePanel();
-  // volta suavemente para a câmera guiada pelo scroll
+  // volta suavemente para a câmera automática
   returnFrom = { pos: camera.position.clone(), target: controls.target.clone(), t: 0 };
   onResize();
 }
@@ -728,60 +658,34 @@ canvas.addEventListener("pointerup", (e) => {
 });
 
 // ---------------------------------------------------------------------------
-// Câmera guiada pelo scroll
+// Câmera automática: depois do terminal, a mente cresce ao redor dela e ela se afasta
 // ---------------------------------------------------------------------------
 const journey = $("journey");
-const intro = $("intro");
-const hint = $("scrollHint");
 const mapUi = $("mapUi");
 const labelsEl = $("labels");
-let progress = 0;
+// progress vai de P0 (dentro do cérebro) a 1 (mapa inteiro à vista) em ENTER_SECONDS
+const P0 = 0.46;
+const ENTER_SECONDS = 5.5;
+let progress = P0;
+let entered = false;
 let finalDist = 17;
-
-// abertura: de lado e à frente, para ver o rosto; depois a câmera contorna o personagem até ficar atrás da cabeça
-const C0 = new THREE.Vector3(-1.6, 1.3, -0.7);
-const L0 = new THREE.Vector3(0.15, 1.14, -0.3);
-const C1 = new THREE.Vector3(0.3, 1.36, 0.75);
-const C2 = HEAD.clone().add(new THREE.Vector3(0, 0.03, 0.34));
-const S0 = 0.022; // escala da mente quando ainda está dentro da cabeça
+const S0 = 0.022; // escala da mente no começo, com a câmera lá dentro
 const D0 = 0.34;
 
-const par = new THREE.Vector2();
-const parTarget = new THREE.Vector2();
-window.addEventListener("pointermove", (e) => {
-  if (e.pointerType !== "mouse" || reduceMotion) return;
-  parTarget.set((e.clientX / window.innerWidth) * 2 - 1, -((e.clientY / window.innerHeight) * 2 - 1));
-});
 const camPos = new THREE.Vector3();
 const camTarget = new THREE.Vector3();
 function scriptedCamera(p, out, outTarget) {
-  if (p < 0.3) {
-    // arco em volta da cabeça (não atravessa o personagem)
-    const t = smooth(0, 0.3, p);
-    const a0 = Math.atan2(C0.x - HEAD.x, C0.z - HEAD.z);
-    const a1 = Math.atan2(C1.x - HEAD.x, C1.z - HEAD.z);
-    const r = lerp(Math.hypot(C0.x - HEAD.x, C0.z - HEAD.z), Math.hypot(C1.x - HEAD.x, C1.z - HEAD.z), t);
-    const a = lerp(a0, a1, t);
-    out.set(HEAD.x + Math.sin(a) * r, lerp(C0.y, C1.y, t), HEAD.z + Math.cos(a) * r);
-    outTarget.lerpVectors(L0, HEAD, smooth(0.05, 0.3, p));
-  } else if (p < 0.46) {
-    out.lerpVectors(C1, C2, smooth(0.3, 0.46, p));
-    outTarget.copy(HEAD);
-  } else {
-    // a mente cresce ao redor da câmera e depois a câmera se afasta para ver tudo
-    const t = smooth(0.46, 0.84, p);
-    const d = D0 * Math.pow(finalDist / D0, t * t);
-    const az = t * 0.7;
-    const el = lerp(0.05, 0.16, t);
-    out.set(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(d).add(HEAD);
-    outTarget.copy(HEAD);
-  }
+  const t = smooth(0.46, 0.84, p);
+  const d = D0 * Math.pow(finalDist / D0, t * t);
+  const az = t * 0.7;
+  const el = lerp(0.05, 0.16, t);
+  out.set(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(d).add(HEAD);
+  outTarget.copy(HEAD);
 }
 
-function onScroll() {
-  const rect = journey.getBoundingClientRect();
-  progress = clamp(-rect.top / (rect.height - window.innerHeight), 0, 1);
-}
+const enter = () => (entered = true);
+if (window.__introEntered) enter();
+else window.addEventListener("intro:enter", enter, { once: true });
 
 function onResize() {
   const W = window.innerWidth;
@@ -798,21 +702,17 @@ function onResize() {
   labelRenderer.setSize(W, H);
   const halfH = Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * aspect);
   finalDist = Math.max(11.5, 4.6 / Math.tan(halfH) + 1.5);
-  if (aspect < 1) C0.set(-1.9, 1.4, -1.0);
-  else C0.set(-1.6, 1.3, -0.7);
 }
-
-window.addEventListener("scroll", onScroll, { passive: true });
 
 window.addEventListener("resize", onResize);
 onResize();
-onScroll();
 
 // ---------------------------------------------------------------------------
 // Loop
 // ---------------------------------------------------------------------------
 const clock = new THREE.Clock();
 let mindSpin = 0;
+let rendered = false;
 const linkPulseColor = new THREE.Color("#e0f2fe");
 
 function visibility(n) {
@@ -826,25 +726,13 @@ function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
   const time = clock.elapsedTime;
   if (!exploring && journey.getBoundingClientRect().bottom < 0) return; // fora da tela
+  // enquanto o terminal cobre a tela, desenha só o primeiro quadro (compila os shaders)
+  if (!entered && rendered) return;
+  if (entered) progress = Math.min(1, progress + dt / ENTER_SECONDS);
   const p = progress;
 
-  // Sala
-  const roomOpacity = 1 - smooth(0.46, 0.56, p);
-  room.visible = roomOpacity > 0.001;
-  R.mats.forEach((m) => (m.opacity = roomOpacity));
-  const headFade = 1 - smooth(0.34, 0.46, p);
-  R.headMats.forEach((m) => {
-    m.opacity = headFade * roomOpacity;
-    m.depthWrite = headFade > 0.99;
-    m.visible = headFade > 0.3; // o interior da cabeça não aparece durante o mergulho
-  });
-  if (room.visible) R.update(time, dt);
-  // mergulho no código: o túnel aparece enquanto a câmera atravessa a cabeça
-  const dive = smooth(0.37, 0.45, p) * (1 - smooth(0.5, 0.6, p));
-  tunnel.visible = dive > 0.001;
-  tunnelU.uOpacity.value = dive;
-  tunnelU.uTime.value = time;
-  tunnelU.uFlow.value = p * 6;
+  // chegada: distorção de lente forte logo depois do zoom no terminal
+  const dive = 1 - smooth(P0, 0.6, p);
   cinema.uniforms.uWarp.value = dive * 0.6;
   bloom.strength = lerp(0.6, 0.32, smooth(0.5, 0.8, p)) + dive * 0.5;
 
@@ -878,12 +766,6 @@ function frame() {
     controls.update(dt);
   } else {
     scriptedCamera(p, camPos, camTarget);
-    // parallax sutil com o mouse na cena de abertura
-    par.x += (parTarget.x - par.x) * Math.min(1, dt * 3);
-    par.y += (parTarget.y - par.y) * Math.min(1, dt * 3);
-    const pk = 1 - smooth(0, 0.25, p);
-    camPos.x += par.x * 0.12 * pk;
-    camPos.y += par.y * 0.06 * pk;
     if (returnFrom) {
       returnFrom.t = Math.min(1, returnFrom.t + dt / 0.8);
       const k = smooth(0, 1, returnFrom.t);
@@ -954,8 +836,6 @@ function frame() {
   });
 
   // Interface por cima
-  intro.style.opacity = 1 - smooth(0, 0.06, p);
-  hint.style.opacity = 1 - smooth(0, 0.04, p);
   const ui = smooth(0.88, 0.95, p);
   mapUi.style.opacity = ui;
   mapUi.classList.toggle("on", ui > 0.5);
@@ -964,5 +844,6 @@ function frame() {
   cinema.uniforms.uTime.value = time;
   composer.render(dt);
   labelRenderer.render(scene, camera);
+  rendered = true;
 }
 requestAnimationFrame(frame);
