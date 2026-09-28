@@ -5,6 +5,8 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { PROFILE as P } from "./data.js";
 import { buildRoom, HEAD } from "./room.js";
 
@@ -69,19 +71,71 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setClearColor(0x000000, 1);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
+// versão para PC: sombras suaves e reflexos de ambiente
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const labelRenderer = new CSS2DRenderer({ element: $("labels") });
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0x000000, 5, 14);
 const camera = new THREE.PerspectiveCamera(45, 1, 0.005, 200);
+{
+  // reflexo suave de um estúdio nos materiais metálicos, couro e pele
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environmentIntensity = 0.18;
+  pmrem.dispose();
+}
 
-// Pós-processamento: brilho (bloom) nas telas, LEDs e neurônios
-const composer = new EffectComposer(renderer);
+// Pós-processamento em HDR com MSAA: bloom nas telas, LEDs e neurônios,
+// depois um passe "de cinema" (aberração cromática, grão, vinheta, distorção no mergulho)
+const composer = new EffectComposer(
+  renderer,
+  new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 })
+);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.55, 0.5, 0.55);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
+const cinema = new ShaderPass({
+  uniforms: {
+    tDiffuse: { value: null },
+    uTime: { value: 0 },
+    uAberr: { value: 0.0015 },
+    uWarp: { value: 0 },
+    uGrain: { value: 0.045 },
+    uVignette: { value: 0.35 },
+    uRes: { value: new THREE.Vector2(1, 1) },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uTime, uAberr, uWarp, uGrain, uVignette;
+    uniform vec2 uRes;
+    varying vec2 vUv;
+    float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main() {
+      vec2 c = vUv - 0.5;
+      float r2 = dot(c, c);
+      // distorção de lente (fica forte no mergulho para dentro da cabeça)
+      vec2 uv = 0.5 + c * (1.0 - uWarp * r2 * 1.6);
+      vec2 dir = c * (uAberr + uWarp * 0.02) * (0.4 + r2 * 3.0);
+      vec3 col;
+      col.r = texture2D(tDiffuse, uv + dir).r;
+      col.g = texture2D(tDiffuse, uv).g;
+      col.b = texture2D(tDiffuse, uv - dir).b;
+      // grão de filme, que não pisca rápido demais
+      float g = hash(floor(vUv * uRes) + floor(uTime * 24.0)) - 0.5;
+      col += g * uGrain * (0.6 + 0.4 * (1.0 - dot(col, vec3(0.333))));
+      // vinheta
+      col *= 1.0 - uVignette * smoothstep(0.15, 0.75, r2 * 2.0);
+      gl_FragColor = vec4(col, 1.0);
+    }`,
+});
+composer.addPass(cinema);
 
 // ---------------------------------------------------------------------------
 // Texturas geradas
@@ -113,6 +167,57 @@ const DOT = radialTexture(32, [
 const R = buildRoom(P.avatar);
 const room = R.group;
 scene.add(room);
+
+// ---------------------------------------------------------------------------
+// Mergulho: túnel de código verde ao redor da câmera enquanto ela entra na cabeça
+// ---------------------------------------------------------------------------
+scene.add(camera);
+const tunnelU = { uTime: { value: 0 }, uFlow: { value: 0 }, uOpacity: { value: 0 }, uGlyphs: { value: R.glyphs } };
+const tunnel = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.6, 0.6, 30, 96, 1, true),
+  new THREE.ShaderMaterial({
+    uniforms: tunnelU,
+    vertexShader: `
+      varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `
+      uniform float uTime, uFlow, uOpacity;
+      uniform sampler2D uGlyphs;
+      varying vec2 vUv;
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      void main() {
+        const vec2 GRID = vec2(96.0, 420.0);
+        vec2 g = vec2(vUv.x, vUv.y) * GRID;
+        vec2 cell = floor(g);
+        vec2 inCell = fract(g);
+        float seed = hash(vec2(cell.x, 9.1));
+        // gotas correndo pelo túnel em direção à câmera
+        float period = 60.0 + floor(seed * 60.0);
+        float head = fract(uTime * (0.08 + seed * 0.12) + uFlow * (0.6 + seed) + seed * 5.0) * period;
+        float d = mod(head - mod(cell.y, period), period);
+        float trail = exp(-d * 0.09);
+        float isHead = 1.0 - step(1.0, d);
+        float idx = floor(hash(cell + floor(uTime * (2.0 + seed * 6.0))) * 64.0);
+        vec2 guv = (vec2(mod(idx, 8.0), 7.0 - floor(idx / 8.0)) + vec2(1.0 - inCell.x, inCell.y)) / 8.0;
+        float glyph = texture2D(uGlyphs, guv).r;
+        vec3 col = mix(vec3(0.1, 1.0, 0.35), vec3(0.85, 1.0, 0.9), isHead);
+        // some perto da câmera e no fundo, onde a cabeça "acaba"
+        float depthFade = smoothstep(0.5, 0.56, vUv.y) * (1.0 - smoothstep(0.9, 1.0, vUv.y));
+        float a = glyph * (0.08 + 1.4 * trail) * depthFade * uOpacity;
+        gl_FragColor = vec4(col * a, a);
+      }`,
+    transparent: true,
+    depthWrite: false,
+    depthTest: false,
+    side: THREE.BackSide,
+    blending: THREE.AdditiveBlending,
+  })
+);
+// eixo do cilindro apontando para a frente da câmera
+tunnel.rotation.x = -Math.PI / 2;
+tunnel.renderOrder = 10;
+tunnel.visible = false;
+camera.add(tunnel);
 
 // ---------------------------------------------------------------------------
 // Mente: cérebro de partículas + mapa neural
@@ -150,34 +255,127 @@ const pushPt = (v, k) => {
   const c = cA.clone().lerp(cB, k);
   shellCols.push(c.r, c.g, c.b);
 };
-for (let i = 0; i < 6000; i++) pushPt(brainPoint(randomDir(), i % 2 ? 1 : -1), rand());
-for (let i = 0; i < 900; i++) {
+for (let i = 0; i < 26000; i++) pushPt(brainPoint(randomDir(), i % 2 ? 1 : -1), rand());
+for (let i = 0; i < 3600; i++) {
   const u = randomDir();
   pushPt(new THREE.Vector3(u.x * 2.1, -1.75 + u.y * 0.8 * (1 + 0.08 * Math.sin(u.y * 30)), 2.5 + u.z * 1.1), rand() * 0.5);
 }
-for (let i = 0; i < 300; i++) {
+for (let i = 0; i < 1200; i++) {
   const t = rand();
   const a = rand() * Math.PI * 2;
   pushPt(new THREE.Vector3(Math.cos(a) * 0.45, -1.4 - t * 2, 1.3 + t * 0.5 + Math.sin(a) * 0.45), rand() * 0.3);
 }
-for (let i = 0; i < 900; i++) {
+for (let i = 0; i < 5000; i++) {
   const u = randomDir().multiplyScalar(Math.cbrt(rand()) * 0.9);
   pushPt(brainPoint(u, rand() < 0.5 ? 1 : -1), 1);
 }
+const shellRnd = new Float32Array(shellPts.length / 3).map(() => rand());
 const shellGeo = new THREE.BufferGeometry();
 shellGeo.setAttribute("position", new THREE.Float32BufferAttribute(shellPts, 3));
 shellGeo.setAttribute("color", new THREE.Float32BufferAttribute(shellCols, 3));
-const shellMat = new THREE.PointsMaterial({
-  size: 0.055,
+shellGeo.setAttribute("aRnd", new THREE.BufferAttribute(shellRnd, 1));
+// Pontos com brilho próprio: cintilam e são varridos por ondas de disparo sináptico
+const shellU = {
+  uTime: { value: 0 },
+  uSize: { value: 0.05 },
+  uScale: { value: 400 },
+  uOpacity: { value: 0 },
+  uDot: { value: DOT },
+  uFire: { value: new THREE.Color(0xd9fff0) },
+};
+const shellMat = new THREE.ShaderMaterial({
+  uniforms: shellU,
+  vertexShader: `
+    uniform float uTime, uSize, uScale;
+    attribute vec3 color;
+    attribute float aRnd;
+    varying vec3 vCol;
+    varying float vFire;
+    const vec3 O1 = vec3(1.6, 1.4, -2.4), O2 = vec3(-1.8, 0.4, 1.8), O3 = vec3(0.2, -1.2, 0.3);
+    float wave(vec3 p, vec3 o, float speed, float off) {
+      float r = fract(uTime * speed + off) * 9.0;
+      float d = distance(p, o) - r;
+      return exp(-d * d * 6.0) * (1.0 - r / 9.0);
+    }
+    void main() {
+      float w = wave(position, O1, 0.11, 0.0) + wave(position, O2, 0.08, 0.37) + wave(position, O3, 0.14, 0.71);
+      float spark = pow(max(0.0, sin(uTime * (0.6 + aRnd * 1.7) + aRnd * 91.0)), 60.0);
+      float twinkle = 0.7 + 0.3 * sin(uTime * (1.5 + aRnd * 3.0) + aRnd * 40.0);
+      vFire = clamp(w * 1.2 + spark, 0.0, 1.5);
+      vCol = color * twinkle;
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      gl_PointSize = uSize * (1.0 + vFire * 1.6) * uScale / -mv.z;
+      gl_Position = projectionMatrix * mv;
+    }`,
+  fragmentShader: `
+    uniform sampler2D uDot;
+    uniform float uOpacity;
+    uniform vec3 uFire;
+    varying vec3 vCol;
+    varying float vFire;
+    void main() {
+      float a = texture2D(uDot, gl_PointCoord).a * uOpacity;
+      vec3 c = mix(vCol, uFire, min(vFire, 1.0)) * (1.0 + vFire);
+      gl_FragColor = vec4(c * a, a);
+    }`,
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+});
+mind.add(new THREE.Points(shellGeo, shellMat));
+
+// Nebulosa e poeira estelar ao fundo do mapa
+const nebulaU = { uTime: { value: 0 }, uOpacity: { value: 0 } };
+const nebula = new THREE.Mesh(
+  new THREE.SphereGeometry(60, 48, 32),
+  new THREE.ShaderMaterial({
+    uniforms: nebulaU,
+    vertexShader: `
+      varying vec3 vDir;
+      void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `
+      uniform float uTime, uOpacity;
+      varying vec3 vDir;
+      float h(vec3 p) { return fract(sin(dot(p, vec3(17.1, 113.7, 71.3))) * 43758.5453); }
+      float n(vec3 p) {
+        vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(mix(h(i), h(i + vec3(1,0,0)), f.x), mix(h(i + vec3(0,1,0)), h(i + vec3(1,1,0)), f.x), f.y),
+                   mix(mix(h(i + vec3(0,0,1)), h(i + vec3(1,0,1)), f.x), mix(h(i + vec3(0,1,1)), h(i + vec3(1,1,1)), f.x), f.y), f.z);
+      }
+      float fbm(vec3 p) { float v = 0.0, a = 0.5; for (int k = 0; k < 5; k++) { v += a * n(p); p *= 2.03; a *= 0.5; } return v; }
+      void main() {
+        vec3 d = vDir * 2.2 + vec3(0.0, 0.0, uTime * 0.01);
+        float q = fbm(d + fbm(d * 1.7));
+        float cloud = smoothstep(0.45, 0.95, q);
+        vec3 col = mix(vec3(0.02, 0.05, 0.16), vec3(0.05, 0.35, 0.3), smoothstep(0.55, 1.0, q));
+        col += vec3(0.25, 0.08, 0.35) * smoothstep(0.7, 1.0, fbm(d * 2.5 + 4.0)) * 0.5;
+        gl_FragColor = vec4(col * cloud * uOpacity, 1.0);
+      }`,
+    side: THREE.BackSide,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    transparent: true,
+    fog: false,
+  })
+);
+nebula.renderOrder = -1;
+scene.add(nebula);
+const dustPts = [];
+for (let i = 0; i < 3500; i++) dustPts.push(...randomDir().multiplyScalar(18 + rand() * 30).toArray());
+const dustGeo = new THREE.BufferGeometry();
+dustGeo.setAttribute("position", new THREE.Float32BufferAttribute(dustPts, 3));
+const dustMat = new THREE.PointsMaterial({
+  size: 0.12,
   map: DOT,
-  vertexColors: true,
+  color: 0x9fdcff,
   transparent: true,
   opacity: 0,
   depthWrite: false,
   blending: THREE.AdditiveBlending,
   fog: false,
 });
-mind.add(new THREE.Points(shellGeo, shellMat));
+const dust = new THREE.Points(dustGeo, dustMat);
+scene.add(dust);
 
 // Nós
 const nodes = [];
@@ -595,6 +793,8 @@ function onResize() {
   renderer.setSize(W, H, false);
   composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   composer.setSize(W, H);
+  cinema.uniforms.uRes.value.set(W, H);
+  shellU.uScale.value = (H * Math.min(window.devicePixelRatio || 1, 2)) / 2;
   labelRenderer.setSize(W, H);
   const halfH = Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * aspect);
   finalDist = Math.max(11.5, 4.6 / Math.tan(halfH) + 1.5);
@@ -636,16 +836,32 @@ function frame() {
   R.headMats.forEach((m) => {
     m.opacity = headFade * roomOpacity;
     m.depthWrite = headFade > 0.99;
+    m.visible = headFade > 0.3; // o interior da cabeça não aparece durante o mergulho
   });
   if (room.visible) R.update(time, dt);
-  bloom.strength = lerp(0.6, 0.32, smooth(0.5, 0.8, p));
+  // mergulho no código: o túnel aparece enquanto a câmera atravessa a cabeça
+  const dive = smooth(0.37, 0.45, p) * (1 - smooth(0.5, 0.6, p));
+  tunnel.visible = dive > 0.001;
+  tunnelU.uOpacity.value = dive;
+  tunnelU.uTime.value = time;
+  tunnelU.uFlow.value = p * 6;
+  cinema.uniforms.uWarp.value = dive * 0.6;
+  bloom.strength = lerp(0.6, 0.32, smooth(0.5, 0.8, p)) + dive * 0.5;
 
   // Mente
   const grow = smooth(0.46, 0.84, p);
   const s = S0 * Math.pow(1 / S0, grow);
   mind.scale.setScalar(s);
-  shellMat.size = 0.045 * s;
-  shellMat.opacity = smooth(0.16, 0.36, p) * 0.75;
+  shellU.uSize.value = 0.03 * s;
+  shellU.uOpacity.value = smooth(0.16, 0.36, p) * 0.6;
+  shellU.uTime.value = time;
+  const space = smooth(0.52, 0.72, p);
+  nebula.visible = dust.visible = space > 0.001;
+  nebula.position.copy(camera.position);
+  nebulaU.uOpacity.value = space * 0.75;
+  nebulaU.uTime.value = time;
+  dustMat.opacity = space * 0.7;
+  dust.rotation.y = time * 0.004;
   reveal = smooth(0.66, 0.92, p);
   if (!exploring && !reduceMotion) mindSpin += dt * 0.06 * reveal;
   mind.rotation.y = mindSpin;
@@ -745,6 +961,7 @@ function frame() {
   mapUi.classList.toggle("on", ui > 0.5);
   labelsEl.style.opacity = exploring ? 1 : smooth(0.62, 0.72, p);
 
+  cinema.uniforms.uTime.value = time;
   composer.render(dt);
   labelRenderer.render(scene, camera);
 }
