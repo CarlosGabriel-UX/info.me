@@ -1,4 +1,4 @@
-// Cena de abertura: o quarto, a mesa e o personagem (feito de código, estilo Matrix) sentado no computador.
+// Cena de abertura: o quarto, a mesa e o personagem (visual de Matrix) sentado no computador.
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
@@ -557,19 +557,21 @@ export function buildRoom(avatar = {}) {
   }
 
   // --- Personagem ---------------------------------------------------------
-  // Estilo animação 3D: cabeça grande, cabelo em mechas grossas penteadas de lado,
-  // camiseta de manga longa e pose pensativa (mão no queixo). Cores vêm de PROFILE.avatar.
+  // Visual de Matrix: sobretudo preto longo de couro, óculos escuros pequenos,
+  // cabelo curto penteado para trás e pose pensativa (mão no queixo).
+  // Cores vêm de PROFILE.avatar.
   const A = {
     skin: "#c68b63",
-    hair: "#17181c",
+    hair: "#0a0a0c",
     eyes: "#3b2414",
-    shirt: "#2a2d35",
-    pants: "#141a2b",
-    shoes: "#15171c",
-    soles: "#e5e7eb",
+    coat: "#0b0c0f",
+    pants: "#0d0e12",
+    shoes: "#0a0a0b",
+    soles: "#16171a",
     ...avatar,
   };
-  const shirt = std(A.shirt, { roughness: 0.9 });
+  // couro: um pouco de brilho para a luz verde de contorno desenhar o volume
+  const shirt = std(A.coat, { roughness: 0.38, metalness: 0.25 });
   const skin = std(A.skin, { roughness: 0.55 });
   const pants = std(A.pants, { roughness: 0.9 });
   const shoeMat = std(A.shoes, { roughness: 0.6 });
@@ -594,9 +596,37 @@ export function buildRoom(avatar = {}) {
   ].map(([r, y]) => new THREE.Vector2(r, y));
   const torso = add(new THREE.LatheGeometry(profile, 40), shirt, 0, 0, 0, torsoPivot);
   torso.scale.set(1.25, 1, 0.8);
-  // gola careca e ombros
-  const collar = add(new THREE.TorusGeometry(0.058, 0.012, 10, 32), shirt, 0, 0.5, 0.0, torsoPivot);
-  collar.rotation.x = Math.PI / 2 + 0.1;
+  // gola alta do sobretudo (aberta na frente), lapelas e ombros
+  const collar = add(
+    new THREE.CylinderGeometry(0.095, 0.115, 0.1, 32, 1, true, -Math.PI * 0.72, Math.PI * 1.44),
+    std(A.coat, { roughness: 0.38, metalness: 0.25, side: THREE.DoubleSide }),
+    0, 0.51, 0.015, torsoPivot
+  );
+  collar.rotation.x = 0.12;
+  [-1, 1].forEach((s) => {
+    const lapel = add(rbox(0.075, 0.22, 0.012, 0.005), shirt, s * 0.062, 0.37, -0.152, torsoPivot);
+    lapel.rotation.set(-0.12, 0, s * 0.32);
+  });
+  // camisa preta aparecendo no decote
+  const tee = add(new THREE.PlaneGeometry(0.09, 0.16), std(0x050506, { roughness: 0.9 }), 0, 0.4, -0.151, torsoPivot);
+  tee.rotation.x = -0.1;
+  // barra longa do sobretudo caindo pelos lados e por trás da cadeira
+  const skirt = add(
+    new THREE.LatheGeometry(
+      [
+        [0.2, 0.04],
+        [0.26, -0.03],
+        [0.285, -0.2],
+        [0.31, -0.46],
+      ].map(([r, y]) => new THREE.Vector2(r, y)),
+      40,
+      -Math.PI * 0.6,
+      Math.PI * 1.2
+    ),
+    std(A.coat, { roughness: 0.38, metalness: 0.25, side: THREE.DoubleSide }),
+    0, 0.53, 0.2, body
+  );
+  skirt.scale.set(1.05, 1, 0.85);
   [-1, 1].forEach((s) => add(new THREE.SphereGeometry(0.07, 20, 16), shirt, s * 0.17, 0.43, 0, torsoPivot));
   const neckMat = std(A.skin, { roughness: 0.55 });
   limb([0, 1.0, 0.14], [0, 1.1, 0.13], 0.048, neckMat);
@@ -646,7 +676,7 @@ export function buildRoom(avatar = {}) {
   think.add(handL);
   makeHand(handL, -1, true);
 
-  // pernas e tênis escuros com sola branca
+  // pernas e botas pretas
   [-1, 1].forEach((s) => {
     limb([s * 0.1, 0.55, 0.22], [s * 0.12, 0.55, -0.18], 0.07, pants);
     limb([s * 0.12, 0.55, -0.18], [s * 0.13, 0.12, -0.22], 0.056, pants);
@@ -706,6 +736,7 @@ export function buildRoom(avatar = {}) {
     const lid = add(new THREE.SphereGeometry(0.033, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.42), headMat, 0, 0.001, 0.0, eye);
     lid.scale.set(1.02, 1.12, 0.62);
     lid.rotation.x = -0.25;
+    eye.visible = false; // escondidos atrás dos óculos escuros
     eyes.push(eye);
     // sobrancelha grossa, levemente franzida
     const brow = limb([s * 0.028, 0.047, -0.143], [s * 0.078, 0.052, -0.128], 0.0085, hairMat, headGroup);
@@ -714,53 +745,56 @@ export function buildRoom(avatar = {}) {
   // nariz e boca
   const nose = add(new THREE.SphereGeometry(0.018, 16, 12), headMat, 0, -0.028, -0.158, headGroup);
   nose.scale.set(0.9, 0.95, 1.1);
-  const mouth = add(new THREE.TorusGeometry(0.018, 0.004, 8, 20, Math.PI * 0.6), lipMat, 0.004, -0.064, -0.158, headGroup);
-  mouth.rotation.z = Math.PI + Math.PI * 0.2;
-  mouth.rotation.x = -0.25;
+  // boca séria, em linha reta
+  limb([-0.015, -0.066, -0.156], [0.015, -0.066, -0.156], 0.0032, lipMat, headGroup);
 
-  // cabelo: calota + mechas grossas penteadas para o lado, repartido à esquerda
-  const capGeo = new THREE.SphereGeometry(HR + 0.008, 64, 40, 0, Math.PI * 2, 0, Math.PI * 0.55);
-  const cap = add(capGeo, hairMat, 0, 0.004, 0.01, headGroup);
-  cap.scale.set(1.02, 1.05, 1.0);
+  // óculos escuros pequenos, com reflexo de código verde (material mais abaixo)
+  const glassFrame = std(0x0a0a0b, { roughness: 0.3, metalness: 0.8 });
+  const lensMat = std(0x030304, { roughness: 0.06, metalness: 0.95 });
+  headMats.push(glassFrame, lensMat);
+  const lensGeo = new THREE.SphereGeometry(0.036, 28, 18);
+  const lenses = [];
+  [-1, 1].forEach((s) => {
+    const lens = add(lensGeo, lensMat, s * 0.053, 0.012, -0.156, headGroup);
+    lens.scale.set(1.2, 0.74, 0.3);
+    lens.rotation.y = s * 0.25;
+    lenses.push(lens);
+    limb([s * 0.09, 0.014, -0.142], [s * 0.157, 0.004, -0.01], 0.0038, glassFrame, headGroup);
+  });
+  limb([-0.016, 0.018, -0.162], [0.016, 0.018, -0.162], 0.0038, glassFrame, headGroup);
+
+  // cabelo curto, penteado para trás
+  const capGeo = new THREE.SphereGeometry(HR + 0.006, 64, 40, 0, Math.PI * 2, 0, Math.PI * 0.55);
+  const cap = add(capGeo, hairMat, 0, 0.004, 0.012, headGroup);
+  cap.scale.set(1.02, 1.04, 1.0);
   cap.rotation.x = 0.7;
   seed = 17;
   const clump = new THREE.SphereGeometry(1, 18, 12);
-  const PART = -0.55; // lado da risca (x negativo = esquerda do personagem)
   const addClump = (theta, phi, w, t, len, sweep, lift = 0) => {
     // theta: ângulo em volta da cabeça (PI = rosto), phi: distância do topo
     const n = new THREE.Vector3(Math.sin(phi) * Math.sin(theta), Math.cos(phi), Math.sin(phi) * Math.cos(theta));
     const along = sweep.clone().addScaledVector(n, -sweep.dot(n)).normalize();
     const side = new THREE.Vector3().crossVectors(n, along).normalize();
     const m = new THREE.Mesh(clump, hairMat);
-    m.position.copy(n).multiplyScalar(HR * 1.03 + lift).addScaledVector(along, len * 0.35);
+    m.position.copy(n).multiplyScalar(HR * 1.02 + lift).addScaledVector(along, len * 0.4);
     m.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(side, n, along));
     m.scale.set(w, t, len);
     headGroup.add(m);
     return m;
   };
-  // mechas do topo: saem da risca e caem para a direita e para trás
-  for (let row = 0; row < 3; row++) {
-    for (let i = 0; i < 5; i++) {
-      const theta = Math.PI + PART + i * 0.36 + row * 0.15 + (rand() - 0.5) * 0.08;
-      const phi = 0.3 + row * 0.22 + (rand() - 0.5) * 0.05;
-      const sweep = new THREE.Vector3(1, 0.1, 0.5 + row * 0.35);
-      addClump(theta, phi, 0.052 + rand() * 0.012, 0.017, 0.1 + rand() * 0.02 - row * 0.012, sweep, 0.0);
+  // mechas finas saindo da testa e indo retas para trás
+  // (peças curtas em fileiras, cada uma tangente à cabeça, para acompanhar a curva)
+  for (let row = 0; row < 4; row++) {
+    const phi = 0.64 - row * 0.2;
+    for (let i = -3; i <= 3; i++) {
+      const theta = Math.PI + i * (0.27 + row * 0.04) + (row % 2) * 0.12 + (rand() - 0.5) * 0.05;
+      addClump(theta, phi, 0.042, 0.01, 0.085, new THREE.Vector3(i * 0.04, 0, 1), -0.003);
     }
   }
-  // topete na frente, levantado e virado para a direita
-  for (let i = 0; i < 5; i++) {
-    const theta = Math.PI + PART + 0.2 + i * 0.26;
-    addClump(theta, 0.6 + (i % 2) * 0.04, 0.048, 0.022, 0.095, new THREE.Vector3(1, 0.8, -0.2), 0.012);
-  }
-  // lado da risca: mechas curtas penteadas para baixo e para trás
-  for (let i = 0; i < 4; i++) {
-    addClump(Math.PI + PART - 0.3 - i * 0.34, 0.74 + (rand() - 0.5) * 0.06, 0.04, 0.015, 0.075, new THREE.Vector3(-0.3, -0.6, 1), 0.0);
-  }
 
-  // --- Personagem feito de código (estilo Matrix) ---------------------------
-  // O corpo é só a silhueta: por dentro dela cai uma chuva de caracteres verdes
-  // (katakana e números espelhados), com a ponta de cada coluna mais clara e um
-  // brilho verde nas bordas.
+  // --- Chuva de código (estilo Matrix) ------------------------------------
+  // Caracteres verdes caindo (katakana e números espelhados), com a ponta de cada
+  // coluna mais clara. Usada no reflexo dos óculos.
   const HOLO = new THREE.Color(0x22ff66);
   const glyphs = (() => {
     const c = document.createElement("canvas");
@@ -843,51 +877,14 @@ export function buildRoom(avatar = {}) {
     Object.defineProperty(m, "depthWrite", { get: () => false, set: () => {} });
     return m;
   }
-  const holoBody = holoMaterial();
-  const holoHead = holoMaterial();
-  const ptsMat = () =>
-    new THREE.PointsMaterial({
-      size: 0.0055,
-      map: GLOW,
-      color: 0x4ade80,
-      transparent: true,
-      opacity: 0.25,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-  const ptsBody = ptsMat();
-  const ptsHead = ptsMat();
-  mats.push(holoBody, ptsBody);
-  headMats.push(holoHead, ptsHead);
-  const charMats = new Set([shirt, skin, pants, shoeMat, soleMat, neckMat, headMat, hairMat, eyeWhite, irisMat, pupilMat, lipMat, shine]);
-  const headSet = new Set(headMats);
-  // malhas densas ganham só parte dos vértices como pontos, para não estourar o brilho
-  const thin = (geo) => {
-    const pos = geo.attributes.position;
-    const step = pos.count > 1500 ? 3 : pos.count > 150 ? 2 : 1;
-    if (step === 1) return geo;
-    const out = [];
-    for (let i = 0; i < pos.count; i += step) out.push(pos.getX(i), pos.getY(i), pos.getZ(i));
-    return new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(out, 3));
-  };
-  const swap = [];
-  group.traverse((o) => o.isMesh && charMats.has(o.material) && swap.push(o));
-  swap.forEach((o) => {
-    const inHead = headSet.has(o.material);
-    // olhos e boca ficam só como pontos, para o rosto não virar um emaranhado de anéis
-    const small = o.material === irisMat || o.material === pupilMat || o.material === shine || o.material === lipMat;
-    const eye = o.material === eyeWhite;
-    o.material = inHead ? holoHead : holoBody;
-    o.visible = !small;
-    if (!small && !eye) {
-      o.add(new THREE.Points(thin(o.geometry), inHead ? ptsHead : ptsBody));
-    }
+  // reflexo nas lentes: a mesma chuva de código, só na superfície dos óculos
+  const lensRain = holoMaterial();
+  headMats.push(lensRain);
+  lenses.forEach((l) => {
+    const r = new THREE.Mesh(lensGeo, lensRain);
+    r.scale.setScalar(1.03);
+    l.add(r);
   });
-  // base do projetor: anel de luz no chão, embaixo da cadeira
-  const ring = add(new THREE.RingGeometry(0.42, 0.44, 64), basic(0x22ff66, { opacity: 0.8, side: THREE.DoubleSide }), 0, 0.006, 0.05);
-  ring.rotation.x = -Math.PI / 2;
-  const ringGlow = add(new THREE.CircleGeometry(0.5, 64), basic(0xffffff, { map: GLOW, color: 0x16a34a, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }), 0, 0.004, 0.05);
-  ringGlow.rotation.x = -Math.PI / 2;
 
   // --- Luz geral ----------------------------------------------------------
   // luz suave no rosto, como o reflexo branco da tela
@@ -896,7 +893,7 @@ export function buildRoom(avatar = {}) {
   group.add(faceLight);
   group.add(new THREE.AmbientLight(0x1a2744, 0.7));
   // luzes de contorno vindas das telas (desenham a silhueta do personagem)
-  const rim = new THREE.DirectionalLight(0x7dd3fc, 2.4);
+  const rim = new THREE.DirectionalLight(0x4ade80, 2.6);
   rim.position.set(1.4, 2.0, -1.6);
   group.add(rim);
   const rim2 = new THREE.DirectionalLight(0x818cf8, 1.6);

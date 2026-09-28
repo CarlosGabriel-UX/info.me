@@ -14,12 +14,12 @@ export const PROFILE = {
   // Cores do personagem 3D. Ajuste para ficar parecido com você.
   avatar: {
     skin: "#c68b63",
-    hair: "#17181c",
+    hair: "#0a0a0c",
     eyes: "#3b2414",
-    shirt: "#2a2d35",
-    pants: "#141a2b",
-    shoes: "#15171c",
-    soles: "#e5e7eb",
+    coat: "#0b0c0f",
+    pants: "#0d0e12",
+    shoes: "#0a0a0b",
+    soles: "#16171a",
   },
   summary:
     "Estudante do Técnico em Segurança Cibernética no Senac, com duas qualificações técnicas concluídas e trilha Cisco CCNA em andamento. Buscando estágio ou primeira oportunidade em Suporte de TI (N1/N2) e Sistemas.",
