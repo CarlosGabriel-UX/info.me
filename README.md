@@ -25,6 +25,8 @@ Tudo que aparece no site está em [`assets/js/data.js`](assets/js/data.js):
 - `index.html`: estrutura da página e interface do modo explorar.
 - `assets/css/style.css`: estilos.
 - `assets/js/main.js`: cena 3D (three.js), câmera guiada pelo scroll, mapa neural, controles de órbita, busca, painel de detalhes e a lista acessível no fim da página.
+- `assets/js/room.js`: cena de abertura (quarto, mesa, telas) e a pose do personagem sentado.
+- `assets/models/avatar.glb`: personagem 3D (avatar Ready Player Me, o mesmo dos exemplos do three.js). Para trocar, aponte `PROFILE.avatar.model` para outro `.glb` com esqueleto no padrão Mixamo/Ready Player Me.
 - `assets/vendor/three/`: three.js r169 (licença MIT) incluído no repositório, sem depender de CDN.
 
 ## Deploy
