@@ -1,12 +1,13 @@
 // Cena de abertura: o quarto, a mesa e o personagem (visual de Matrix) sentado no computador.
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
 
 RectAreaLightUniformsLib.init();
 
 // Centro da cabeça: é daqui que a câmera "entra" no cérebro.
-export const HEAD = new THREE.Vector3(0, 1.235, 0.13);
+export const HEAD = new THREE.Vector3(0, 1.22, -0.02);
 
 let seed = 99;
 const smoothstep = (a, b, v) => {
@@ -467,9 +468,9 @@ export function buildRoom(avatar = {}) {
   // Teclado, mouse e mousepad
   const keysTex = makeKeys();
   add(rbox(0.44, 0.018, 0.14, 0.006), std(0x0b0c10, { emissive: 0xffffff, emissiveMap: keysTex, emissiveIntensity: 0.9, roughness: 0.6 }), 0, 0.768, -0.66);
-  const pad = add(new THREE.PlaneGeometry(0.3, 0.25), std(0x0a0b10, { roughness: 1 }), 0.36, 0.7615, -0.66);
+  const pad = add(new THREE.PlaneGeometry(0.3, 0.25), std(0x0a0b10, { roughness: 1 }), 0.36, 0.7635, -0.65);
   pad.rotation.x = -Math.PI / 2;
-  const mouse = add(new THREE.CapsuleGeometry(0.022, 0.03, 6, 12), std(0x111217, { roughness: 0.4 }), 0.36, 0.775, -0.64);
+  const mouse = add(new THREE.CapsuleGeometry(0.022, 0.03, 6, 12), std(0x111217, { roughness: 0.4 }), 0.345, 0.777, -0.56);
   mouse.rotation.x = Math.PI / 2;
   mouse.scale.set(1, 1, 0.55);
 
@@ -556,245 +557,9 @@ export function buildRoom(avatar = {}) {
     add(new THREE.SphereGeometry(0.025, 10, 8), chairMat, Math.cos(a) * 0.3, 0.03, 0.22 + Math.sin(a) * 0.3);
   }
 
-  // --- Personagem ---------------------------------------------------------
-  // Visual de Matrix: sobretudo preto longo de couro, óculos escuros pequenos,
-  // cabelo curto penteado para trás e pose pensativa (mão no queixo).
-  // Cores vêm de PROFILE.avatar.
-  const A = {
-    skin: "#c68b63",
-    hair: "#0a0a0c",
-    eyes: "#3b2414",
-    coat: "#0b0c0f",
-    pants: "#0d0e12",
-    shoes: "#0a0a0b",
-    soles: "#16171a",
-    ...avatar,
-  };
-  // couro: um pouco de brilho para a luz verde de contorno desenhar o volume
-  const shirt = std(A.coat, { roughness: 0.38, metalness: 0.25 });
-  const skin = std(A.skin, { roughness: 0.55 });
-  const pants = std(A.pants, { roughness: 0.9 });
-  const shoeMat = std(A.shoes, { roughness: 0.6 });
-  const soleMat = std(A.soles, { roughness: 0.7 });
-
-  const body = new THREE.Group();
-  group.add(body);
-  // tronco levemente inclinado para frente, pivô na cintura
-  const torsoPivot = new THREE.Group();
-  torsoPivot.position.set(0, 0.52, 0.2);
-  torsoPivot.rotation.x = -0.1;
-  body.add(torsoPivot);
-  const profile = [
-    [0.0, 0.0],
-    [0.15, 0.0],
-    [0.165, 0.1],
-    [0.18, 0.26],
-    [0.19, 0.36],
-    [0.175, 0.44],
-    [0.11, 0.49],
-    [0.05, 0.505],
-  ].map(([r, y]) => new THREE.Vector2(r, y));
-  const torso = add(new THREE.LatheGeometry(profile, 40), shirt, 0, 0, 0, torsoPivot);
-  torso.scale.set(1.25, 1, 0.8);
-  // gola alta do sobretudo (aberta na frente), lapelas e ombros
-  const collar = add(
-    new THREE.CylinderGeometry(0.095, 0.115, 0.1, 32, 1, true, -Math.PI * 0.72, Math.PI * 1.44),
-    std(A.coat, { roughness: 0.38, metalness: 0.25, side: THREE.DoubleSide }),
-    0, 0.51, 0.015, torsoPivot
-  );
-  collar.rotation.x = 0.12;
-  [-1, 1].forEach((s) => {
-    const lapel = add(rbox(0.075, 0.22, 0.012, 0.005), shirt, s * 0.062, 0.37, -0.152, torsoPivot);
-    lapel.rotation.set(-0.12, 0, s * 0.32);
-  });
-  // camisa preta aparecendo no decote
-  const tee = add(new THREE.PlaneGeometry(0.09, 0.16), std(0x050506, { roughness: 0.9 }), 0, 0.4, -0.151, torsoPivot);
-  tee.rotation.x = -0.1;
-  // barra longa do sobretudo caindo pelos lados e por trás da cadeira
-  const skirt = add(
-    new THREE.LatheGeometry(
-      [
-        [0.2, 0.04],
-        [0.26, -0.03],
-        [0.285, -0.2],
-        [0.31, -0.46],
-      ].map(([r, y]) => new THREE.Vector2(r, y)),
-      40,
-      -Math.PI * 0.6,
-      Math.PI * 1.2
-    ),
-    std(A.coat, { roughness: 0.38, metalness: 0.25, side: THREE.DoubleSide }),
-    0, 0.53, 0.2, body
-  );
-  skirt.scale.set(1.05, 1, 0.85);
-  [-1, 1].forEach((s) => add(new THREE.SphereGeometry(0.07, 20, 16), shirt, s * 0.17, 0.43, 0, torsoPivot));
-  const neckMat = std(A.skin, { roughness: 0.55 });
-  limb([0, 1.0, 0.14], [0, 1.1, 0.13], 0.048, neckMat);
-
-  function makeHand(parent, s, fist) {
-    const palm = add(new THREE.SphereGeometry(0.038, 18, 14), skin, 0, 0, 0, parent);
-    palm.scale.set(1, 0.6, 1.1);
-    for (let f = 0; f < 4; f++) {
-      const fx = (f - 1.5) * 0.018;
-      if (fist) {
-        // dedos dobrados
-        const k = add(new THREE.CapsuleGeometry(0.0105, 0.02, 4, 10), skin, fx, 0.004, -0.04, parent);
-        k.rotation.z = Math.PI / 2;
-        k.scale.set(1, 1, 1.25);
-      } else {
-        limb([fx, 0, -0.033], [fx, -0.012, -0.064 + Math.abs(f - 1.5) * 0.006], 0.01, skin, parent);
-      }
-    }
-    limb([s * -0.036, 0, 0.0], [s * -0.05, fist ? 0.012 : -0.004, -0.028], 0.0115, skin, parent);
-  }
-
-  // braço direito no mouse
-  const typing = new THREE.Group();
-  body.add(typing);
-  limb([0.19, 0.93, 0.15], [0.29, 0.76, -0.05], 0.058, shirt, typing);
-  limb([0.29, 0.76, -0.05], [0.34, 0.79, -0.5], 0.05, shirt, typing);
-  const cuffR = add(new THREE.TorusGeometry(0.043, 0.011, 8, 20), shirt, 0.342, 0.79, -0.51, typing);
-  cuffR.lookAt(0.29, 0.76, -0.05);
-  const handR = new THREE.Group();
-  handR.position.set(0.35, 0.795, -0.585);
-  handR.rotation.y = -0.1;
-  typing.add(handR);
-  makeHand(handR, 1, false);
-
-  // braço esquerdo: cotovelo apoiado, punho sob o queixo
-  const think = new THREE.Group();
-  body.add(think);
-  const ELB = [-0.21, 0.74, -0.16];
-  const WRIST = [-0.05, 1.03, -0.06];
-  limb([-0.19, 0.93, 0.15], ELB, 0.058, shirt, think);
-  limb(ELB, WRIST, 0.05, shirt, think);
-  const cuffL = add(new THREE.TorusGeometry(0.043, 0.011, 8, 20), shirt, ...WRIST, think);
-  cuffL.lookAt(...ELB);
-  const handL = new THREE.Group();
-  handL.position.set(-0.03, 1.075, -0.075);
-  handL.rotation.set(-1.25, 0.35, 0.2);
-  think.add(handL);
-  makeHand(handL, -1, true);
-
-  // pernas e botas pretas
-  [-1, 1].forEach((s) => {
-    limb([s * 0.1, 0.55, 0.22], [s * 0.12, 0.55, -0.18], 0.07, pants);
-    limb([s * 0.12, 0.55, -0.18], [s * 0.13, 0.12, -0.22], 0.056, pants);
-    const shoe = add(rbox(0.11, 0.07, 0.2, 0.03), shoeMat, s * 0.13, 0.055, -0.27);
-    shoe.rotation.y = s * 0.08;
-    const sole = add(rbox(0.118, 0.026, 0.21, 0.01), soleMat, s * 0.13, 0.014, -0.27);
-    sole.rotation.y = s * 0.08;
-  });
-
-  // cabeça
-  const headGroup = new THREE.Group();
-  headGroup.position.copy(HEAD);
-  body.add(headGroup);
-  const headMat = std(A.skin, { roughness: 0.55 });
-  const hairMat = std(A.hair, { roughness: 0.6, metalness: 0.05 });
-  const eyeWhite = std(0xd9dee6, { roughness: 0.35 });
-  const irisMat = std(A.eyes, { roughness: 0.3 });
-  const pupilMat = std(0x050505, { roughness: 0.2 });
-  const lipMat = std(0x8a4a3a, { roughness: 0.6 });
-  const shine = basic(0xd7dde8);
-  // mãos incluídas: o punho fica colado ao queixo quando a câmera entra na cabeça
-  headMats.push(headMat, hairMat, eyeWhite, irisMat, pupilMat, lipMat, shine, neckMat, skin);
-
-  const HR = 0.155;
-  // crânio com bochechas e queixo mais cheios (uma malha só, sem emenda)
-  const skullGeo = new THREE.SphereGeometry(HR, 64, 48);
-  const sp = skullGeo.attributes.position;
-  for (let i = 0; i < sp.count; i++) {
-    const x = sp.getX(i) / HR;
-    const y = sp.getY(i) / HR;
-    const z = sp.getZ(i) / HR;
-    const low = smoothstep(0.25, -0.75, y); // metade de baixo
-    const front = smoothstep(0.3, -0.9, z); // lado do rosto
-    sp.setXYZ(i, x * HR * (1 - 0.06 * low), y * HR * 1.04 - 0.012 * low * front, z * HR * 0.97 - 0.022 * low * front);
-  }
-  skullGeo.computeVertexNormals();
-  add(skullGeo, headMat, 0, 0, 0, headGroup);
-  // orelhas
-  [-1, 1].forEach((s) => {
-    const ear = add(new THREE.SphereGeometry(0.034, 16, 12), headMat, s * 0.152, -0.01, 0.012, headGroup);
-    ear.scale.set(0.42, 1, 0.78);
-  });
-  // olhos grandes com pálpebra (olhar concentrado) e piscada
-  const eyes = [];
-  [-1, 1].forEach((s) => {
-    const eye = new THREE.Group();
-    eye.position.set(s * 0.053, 0.005, -0.128);
-    eye.rotation.y = s * 0.28;
-    headGroup.add(eye);
-    const white = add(new THREE.SphereGeometry(0.03, 20, 16), eyeWhite, 0, 0, 0, eye);
-    white.scale.set(1, 1.15, 0.55);
-    const iris = add(new THREE.SphereGeometry(0.02, 20, 16), irisMat, 0, -0.004, -0.012, eye);
-    iris.scale.set(1, 1.1, 0.5);
-    const pupil = add(new THREE.SphereGeometry(0.0105, 14, 10), pupilMat, 0, -0.004, -0.019, eye);
-    pupil.scale.set(1, 1.1, 0.4);
-    add(new THREE.SphereGeometry(0.0032, 8, 6), shine, 0.007, 0.006, -0.022, eye);
-    const lid = add(new THREE.SphereGeometry(0.033, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.42), headMat, 0, 0.001, 0.0, eye);
-    lid.scale.set(1.02, 1.12, 0.62);
-    lid.rotation.x = -0.25;
-    eye.visible = false; // escondidos atrás dos óculos escuros
-    eyes.push(eye);
-    // sobrancelha grossa, levemente franzida
-    const brow = limb([s * 0.028, 0.047, -0.143], [s * 0.078, 0.052, -0.128], 0.0085, hairMat, headGroup);
-    brow.userData.s = s;
-  });
-  // nariz e boca
-  const nose = add(new THREE.SphereGeometry(0.018, 16, 12), headMat, 0, -0.028, -0.158, headGroup);
-  nose.scale.set(0.9, 0.95, 1.1);
-  // boca séria, em linha reta
-  limb([-0.015, -0.066, -0.156], [0.015, -0.066, -0.156], 0.0032, lipMat, headGroup);
-
-  // óculos escuros pequenos, com reflexo de código verde (material mais abaixo)
-  const glassFrame = std(0x0a0a0b, { roughness: 0.3, metalness: 0.8 });
-  const lensMat = std(0x030304, { roughness: 0.06, metalness: 0.95 });
-  headMats.push(glassFrame, lensMat);
-  const lensGeo = new THREE.SphereGeometry(0.036, 28, 18);
-  const lenses = [];
-  [-1, 1].forEach((s) => {
-    const lens = add(lensGeo, lensMat, s * 0.053, 0.012, -0.156, headGroup);
-    lens.scale.set(1.2, 0.74, 0.3);
-    lens.rotation.y = s * 0.25;
-    lenses.push(lens);
-    limb([s * 0.09, 0.014, -0.142], [s * 0.157, 0.004, -0.01], 0.0038, glassFrame, headGroup);
-  });
-  limb([-0.016, 0.018, -0.162], [0.016, 0.018, -0.162], 0.0038, glassFrame, headGroup);
-
-  // cabelo curto, penteado para trás
-  const capGeo = new THREE.SphereGeometry(HR + 0.006, 64, 40, 0, Math.PI * 2, 0, Math.PI * 0.55);
-  const cap = add(capGeo, hairMat, 0, 0.004, 0.012, headGroup);
-  cap.scale.set(1.02, 1.04, 1.0);
-  cap.rotation.x = 0.7;
-  seed = 17;
-  const clump = new THREE.SphereGeometry(1, 18, 12);
-  const addClump = (theta, phi, w, t, len, sweep, lift = 0) => {
-    // theta: ângulo em volta da cabeça (PI = rosto), phi: distância do topo
-    const n = new THREE.Vector3(Math.sin(phi) * Math.sin(theta), Math.cos(phi), Math.sin(phi) * Math.cos(theta));
-    const along = sweep.clone().addScaledVector(n, -sweep.dot(n)).normalize();
-    const side = new THREE.Vector3().crossVectors(n, along).normalize();
-    const m = new THREE.Mesh(clump, hairMat);
-    m.position.copy(n).multiplyScalar(HR * 1.02 + lift).addScaledVector(along, len * 0.4);
-    m.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(side, n, along));
-    m.scale.set(w, t, len);
-    headGroup.add(m);
-    return m;
-  };
-  // mechas finas saindo da testa e indo retas para trás
-  // (peças curtas em fileiras, cada uma tangente à cabeça, para acompanhar a curva)
-  for (let row = 0; row < 4; row++) {
-    const phi = 0.64 - row * 0.2;
-    for (let i = -3; i <= 3; i++) {
-      const theta = Math.PI + i * (0.27 + row * 0.04) + (row % 2) * 0.12 + (rand() - 0.5) * 0.05;
-      addClump(theta, phi, 0.042, 0.01, 0.085, new THREE.Vector3(i * 0.04, 0, 1), -0.003);
-    }
-  }
-
   // --- Chuva de código (estilo Matrix) ------------------------------------
   // Caracteres verdes caindo (katakana e números espelhados), com a ponta de cada
-  // coluna mais clara. Usada no reflexo dos óculos.
+  // coluna mais clara. Usada no reflexo dos óculos do personagem.
   const HOLO = new THREE.Color(0x22ff66);
   const glyphs = (() => {
     const c = document.createElement("canvas");
@@ -877,14 +642,214 @@ export function buildRoom(avatar = {}) {
     Object.defineProperty(m, "depthWrite", { get: () => false, set: () => {} });
     return m;
   }
-  // reflexo nas lentes: a mesma chuva de código, só na superfície dos óculos
+  // reflexo nas lentes dos óculos: a mesma chuva de código
   const lensRain = holoMaterial();
   headMats.push(lensRain);
-  lenses.forEach((l) => {
-    const r = new THREE.Mesh(lensGeo, lensRain);
-    r.scale.setScalar(1.03);
-    l.add(r);
-  });
+
+  // --- Personagem (modelo 3D) ---------------------------------------------
+  // Modelo humano com esqueleto (assets/models/avatar.glb), de sobretudo preto e
+  // óculos escuros. A pose sentada é montada apontando os ossos para alvos na
+  // cena: IK de dois ossos para braços e pernas, dedos dobrados em volta da palma.
+  const look = { model: "assets/models/avatar.glb", outfit: "#1c1d22", ...avatar };
+  const V3 = THREE.Vector3;
+  const Q = THREE.Quaternion;
+  const wpos = (o) => o.getWorldPosition(new V3());
+  // gira o osso em torno de um eixo do mundo
+  function rotateWorld(b, axis, ang) {
+    const pq = b.parent.getWorldQuaternion(new Q()).invert();
+    const wq = b.getWorldQuaternion(new Q());
+    b.quaternion.copy(pq.multiply(new Q().setFromAxisAngle(axis, ang)).multiply(wq));
+    b.updateMatrixWorld(true);
+  }
+  // gira o osso para que o filho fique na direção do alvo
+  function aim(b, child, target) {
+    const bp = wpos(b);
+    const d = new Q().setFromUnitVectors(wpos(child).sub(bp).normalize(), target.clone().sub(bp).normalize());
+    const pq = b.parent.getWorldQuaternion(new Q()).invert();
+    b.quaternion.copy(pq.multiply(d).multiply(b.getWorldQuaternion(new Q())));
+    b.updateMatrixWorld(true);
+  }
+  // braço/perna: a, b, c = ombro, cotovelo, punho; o cotovelo vai para o lado do "pole"
+  function twoBone(a, b, c, target, pole) {
+    const A = wpos(a);
+    const la = A.distanceTo(wpos(b));
+    const lb = wpos(b).distanceTo(wpos(c));
+    const dir = target.clone().sub(A);
+    const d = Math.min(dir.length(), (la + lb) * 0.999);
+    dir.normalize();
+    const x = (la * la - lb * lb + d * d) / (2 * d);
+    const h = Math.sqrt(Math.max(la * la - x * x, 0));
+    const p = pole.clone().sub(A);
+    p.addScaledVector(dir, -p.dot(dir)).normalize();
+    aim(a, b, A.clone().addScaledVector(dir, x).addScaledVector(p, h));
+    aim(b, c, A.clone().addScaledVector(dir, d));
+  }
+
+  let person = null;
+  new GLTFLoader().load(look.model, (gltf) => (person = setupPerson(gltf.scene)), undefined, (e) => console.warn("avatar:", e));
+
+  function setupPerson(root) {
+    const B = {};
+    root.traverse((o) => {
+      if (o.isBone) B[o.name] = o;
+      if (!o.isMesh) return;
+      o.frustumCulled = false;
+      // sem chapéu e sem bigode: careca, como o Morpheus
+      if (o.name === "Wolf3D_Headwear" || o.name === "Wolf3D_Beard") {
+        o.visible = false;
+        return;
+      }
+      const m = o.material;
+      m.transparent = true;
+      if (/Outfit/.test(o.name)) {
+        m.color.set(look.outfit);
+        m.roughness = Math.min(m.roughness ?? 1, 0.6);
+      }
+      // cabeça e pele (mãos e pescoço) somem junto com a cabeça quando a câmera entra
+      (/Head|Eye|Teeth|Body/.test(o.name) ? headMats : mats).push(m);
+    });
+    root.rotation.y = Math.PI; // o modelo olha para +z; a mesa fica em -z
+    group.add(root);
+    root.updateMatrixWorld(true);
+
+    // lado da palma de cada mão, guardado em coordenadas locais antes de posar
+    // (na pose de fábrica os braços caem ao lado do corpo com a palma para dentro)
+    const palm = {};
+    ["Left", "Right"].forEach((s) => {
+      const hand = B[s + "Hand"];
+      const inward = new V3(-wpos(hand).x, 0, 0).normalize();
+      palm[s] = inward.applyQuaternion(hand.getWorldQuaternion(new Q()).invert());
+    });
+
+    // quadril sobre o assento
+    const hips = wpos(B.Hips);
+    root.position.add(new V3(0, 0.6, 0.02).sub(hips));
+    root.updateMatrixWorld(true);
+
+    // coluna inclinada para a frente, pescoço compensando
+    const X = new V3(1, 0, 0);
+    rotateWorld(B.Spine, X, -0.17);
+    rotateWorld(B.Spine1, X, -0.08);
+    rotateWorld(B.Spine2, X, -0.04);
+    rotateWorld(B.Neck, X, 0.14);
+    rotateWorld(B.Head, X, 0.02);
+
+    // pernas: coxas para a frente, canelas para baixo, pés no chão
+    ["Left", "Right"].forEach((s) => {
+      const hip = wpos(B[s + "UpLeg"]);
+      const sx = Math.sign(hip.x);
+      const ankle = new V3(hip.x + sx * 0.04, 0.11, hip.z - 0.45);
+      twoBone(B[s + "UpLeg"], B[s + "Leg"], B[s + "Foot"], ankle, hip.clone().add(new V3(sx * 0.1, 0.4, -1)));
+      aim(B[s + "Foot"], B[s + "ToeBase"], ankle.clone().add(new V3(0, -0.07, -0.13)));
+    });
+
+    // dobra os dedos em direção à palma
+    function curl(side, amount, thumb = 0.4) {
+      const hand = B[side + "Hand"];
+      const pn = palm[side].clone().applyQuaternion(hand.getWorldQuaternion(new Q())).normalize();
+      ["Index", "Middle", "Ring", "Pinky"].forEach((f) => {
+        for (let j = 1; j <= 3; j++) {
+          const bone = B[side + "Hand" + f + j];
+          const next = B[side + "Hand" + f + (j + 1)];
+          const dir = wpos(next).sub(wpos(bone)).normalize();
+          rotateWorld(bone, new V3().crossVectors(dir, pn).normalize(), amount * (j === 1 ? 0.8 : 1));
+        }
+      });
+      for (let j = 2; j <= 3; j++) {
+        const bone = B[side + "HandThumb" + j];
+        const dir = wpos(B[side + "HandThumb" + (j + 1)]).sub(wpos(bone)).normalize();
+        rotateWorld(bone, new V3().crossVectors(dir, pn).normalize(), thumb);
+      }
+    }
+
+    // gira a mão em torno do próprio eixo até a palma ficar virada para "want"
+    function rollPalm(side, want) {
+      const hand = B[side + "Hand"];
+      const axis = wpos(B[side + "HandMiddle1"]).sub(wpos(hand)).normalize();
+      const pn = palm[side].clone().applyQuaternion(hand.getWorldQuaternion(new Q()));
+      const a = pn.clone().addScaledVector(axis, -pn.dot(axis)).normalize();
+      const b = want.clone().addScaledVector(axis, -want.dot(axis)).normalize();
+      rotateWorld(hand, axis, Math.atan2(new V3().crossVectors(a, b).dot(axis), a.dot(b)));
+    }
+
+    // braço direito: mão no mouse, palma para baixo
+    const shR = wpos(B.RightArm);
+    const mouseWrist = new V3(0.34, 0.795, -0.46);
+    twoBone(B.RightArm, B.RightForeArm, B.RightHand, mouseWrist, shR.clone().add(new V3(0.6, -0.5, 0.3)));
+    aim(B.RightHand, B.RightHandMiddle1, mouseWrist.clone().add(new V3(0.01, -0.015, -0.1)));
+    rollPalm("Right", new V3(0, -1, 0));
+    curl("Right", 0.3, 0.1);
+
+    // braço esquerdo: cotovelo baixo, punho fechado sob o queixo
+    const shL = wpos(B.LeftArm);
+    const eyeMid = wpos(B.LeftEye).add(wpos(B.RightEye)).multiplyScalar(0.5);
+    const chin = eyeMid.clone().add(new V3(0, -0.12, 0.0));
+    const wristL = chin.clone().add(new V3(-0.02, -0.08, 0.02));
+    twoBone(B.LeftArm, B.LeftForeArm, B.LeftHand, wristL, shL.clone().add(new V3(-0.4, -1, -0.5)));
+    aim(B.LeftHand, B.LeftHandMiddle1, wristL.clone().add(new V3(0.02, 0.09, -0.03)));
+    rollPalm("Left", new V3(0.3, 0, 1).normalize());
+    curl("Left", 1.35, 0.7);
+
+    // cabeça no lugar da câmera: acerta o corpo para o centro da cabeça cair em HEAD
+    const headCenter = () => {
+      const e = wpos(B.LeftEye).add(wpos(B.RightEye)).multiplyScalar(0.5);
+      return e.add(new V3(0, -0.02, 0.07));
+    };
+    root.position.add(HEAD.clone().sub(headCenter()));
+    root.updateMatrixWorld(true);
+
+    // óculos escuros redondos, presos ao osso da cabeça
+    const eL = wpos(B.LeftEye);
+    const eR = wpos(B.RightEye);
+    const right = eR.clone().sub(eL).normalize();
+    const up = wpos(B.HeadTop_End).sub(wpos(B.Head)).normalize();
+    const back = new V3().crossVectors(right, up).normalize();
+    up.crossVectors(back, right).normalize();
+    const glasses = new THREE.Group();
+    glasses.position.copy(eL).add(eR).multiplyScalar(0.5);
+    glasses.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(right, up, back));
+    group.add(glasses);
+    const glassFrame = std(0x0a0a0b, { roughness: 0.3, metalness: 0.8 });
+    const lensMat = std(0x020203, { roughness: 0.05, metalness: 0.95 });
+    mats.splice(mats.indexOf(glassFrame), 1);
+    mats.splice(mats.indexOf(lensMat), 1);
+    headMats.push(glassFrame, lensMat);
+    const lensGeo = new THREE.SphereGeometry(0.02, 28, 18);
+    const half = eL.distanceTo(eR) / 2;
+    [-1, 1].forEach((s) => {
+      const lens = add(lensGeo, lensMat, s * half, -0.002, -0.03, glasses);
+      lens.scale.set(1.05, 1, 0.3);
+      const rain = new THREE.Mesh(lensGeo, lensRain);
+      rain.scale.setScalar(1.04);
+      lens.add(rain);
+      const rim = add(new THREE.TorusGeometry(0.021, 0.0016, 8, 32), glassFrame, s * half, -0.002, -0.03, glasses);
+      rim.scale.set(1.05, 1, 1);
+      limb([s * (half + 0.021), 0.0, -0.028], [s * (half + 0.03), 0.006, 0.07], 0.0016, glassFrame, glasses);
+    });
+    limb([-half + 0.02, 0.004, -0.032], [half - 0.02, 0.004, -0.032], 0.0016, glassFrame, glasses);
+    B.Head.attach(glasses);
+
+    // pose base para a animação
+    const base = {};
+    ["Head", "Spine2", "RightForeArm"].forEach((n) => (base[n] = B[n].quaternion.clone()));
+    const tmp = new Q();
+    const axisY = new V3(0, 1, 0);
+    const axisX = new V3(1, 0, 0);
+    return {
+      update(time) {
+        // respiração
+        B.Spine2.quaternion.copy(base.Spine2).multiply(tmp.setFromAxisAngle(axisX, 0.015 * Math.sin(time * 1.6)));
+        // olha ora para o monitor, ora para o notebook, apoiado na mão
+        const glance = smoothstep(-0.3, 0.3, Math.sin(time * 0.35));
+        B.Head.quaternion
+          .copy(base.Head)
+          .multiply(tmp.setFromAxisAngle(axisY, -0.05 - 0.18 * glance))
+          .multiply(new Q().setFromAxisAngle(axisX, 0.03 * Math.sin(time * 0.7)));
+        // mão mexendo o mouse
+        B.RightForeArm.quaternion.copy(base.RightForeArm).multiply(tmp.setFromAxisAngle(axisY, 0.04 * Math.sin(time * 0.9)));
+      },
+    };
+  }
 
   // --- Luz geral ----------------------------------------------------------
   // luz suave no rosto, como o reflexo branco da tela
@@ -947,17 +912,7 @@ export function buildRoom(avatar = {}) {
   function update(time, dt) {
     holoUniforms.uTime.value = time;
     if (!reduce) {
-      // respiração e pequenos movimentos de cabeça
-      torsoPivot.scale.y = 1 + 0.012 * Math.sin(time * 1.6);
-      // olha ora para o monitor, ora para o notebook, apoiado na mão
-      const glance = smoothstep(-0.3, 0.3, Math.sin(time * 0.35));
-      headGroup.rotation.set(-0.1 + 0.02 * Math.sin(time * 0.7), -0.05 - 0.2 * glance, 0.06 + 0.02 * Math.sin(time * 0.5));
-      // piscar
-      const blink = time % 4.2 < 0.12 ? 0.1 : 1;
-      eyes.forEach((e) => (e.scale.y = blink));
-      // mão no mouse
-      typing.position.x = 0.004 * Math.sin(time * 0.9);
-      typing.position.z = 0.004 * Math.sin(time * 1.3);
+      if (person) person.update(time);
       // LEDs do switch
       leds.forEach((l) => (l.visible = Math.sin(time * 9 + l.userData.phase * 3) > -0.3 || Math.random() < 0.1));
       // vapor

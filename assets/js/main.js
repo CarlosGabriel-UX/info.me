@@ -545,7 +545,7 @@ const C0 = new THREE.Vector3(-1.6, 1.3, -0.7);
 const L0 = new THREE.Vector3(0.15, 1.14, -0.3);
 const C1 = new THREE.Vector3(0.3, 1.36, 0.75);
 const C2 = HEAD.clone().add(new THREE.Vector3(0, 0.03, 0.34));
-const S0 = 0.03; // escala da mente quando ainda está dentro da cabeça
+const S0 = 0.022; // escala da mente quando ainda está dentro da cabeça
 const D0 = 0.34;
 
 const par = new THREE.Vector2();
