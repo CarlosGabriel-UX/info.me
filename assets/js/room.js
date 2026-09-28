@@ -318,6 +318,89 @@ function makeWood() {
 // ---------------------------------------------------------------------------
 // Montagem
 // ---------------------------------------------------------------------------
+// Parede de tijolos escuros: cor e relevo desenhados em canvas (1 m x 1 m por repetição)
+function makeBricks() {
+  const S = 1024;
+  const col = document.createElement("canvas");
+  const bump = document.createElement("canvas");
+  col.width = col.height = bump.width = bump.height = S;
+  const g = col.getContext("2d");
+  const b = bump.getContext("2d");
+  g.fillStyle = "#0d0e11";
+  g.fillRect(0, 0, S, S);
+  b.fillStyle = "#000";
+  b.fillRect(0, 0, S, S);
+  seed = 314;
+  const rows = 15;
+  const rh = S / rows;
+  const bw = S / 4.5;
+  for (let r = 0; r < rows; r++) {
+    const off = r % 2 ? bw / 2 : 0;
+    for (let x = -bw + off; x < S + bw; x += bw) {
+      const v = 34 + rand() * 18;
+      const warm = rand() < 0.2 ? 6 : 0;
+      g.fillStyle = `rgb(${v + warm},${v},${v + 6})`;
+      g.fillRect(x + 3, r * rh + 3, bw - 6, rh - 6);
+      // manchas e desgaste
+      for (let k = 0; k < 40; k++) {
+        const d = rand() * 14 - 7;
+        g.fillStyle = `rgba(${v + d},${v + d},${v + d + 4},0.6)`;
+        g.fillRect(x + 3 + rand() * (bw - 10), r * rh + 3 + rand() * (rh - 10), 2 + rand() * 6, 2 + rand() * 4);
+      }
+      const bv = 150 + rand() * 60;
+      b.fillStyle = `rgb(${bv},${bv},${bv})`;
+      b.fillRect(x + 4, r * rh + 4, bw - 8, rh - 8);
+    }
+  }
+  // ruído fino no relevo
+  const img = b.getImageData(0, 0, S, S);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const n = (rand() - 0.5) * 40;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = Math.max(0, Math.min(255, img.data[i] + n));
+  }
+  b.putImageData(img, 0, 0);
+  const map = new THREE.CanvasTexture(col);
+  map.colorSpace = THREE.SRGBColorSpace;
+  const bumpMap = new THREE.CanvasTexture(bump);
+  [map, bumpMap].forEach((t) => {
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = 8;
+  });
+  return { map, bumpMap };
+}
+
+// Letreiro de neon: tubo claro com halo desenhado em volta
+function makeNeon(text, color) {
+  const c = document.createElement("canvas");
+  c.width = 1024;
+  c.height = 256;
+  const g = c.getContext("2d");
+  g.font = "600 150px 'Courier New', monospace";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.lineJoin = "round";
+  for (const [blur, alpha, width] of [
+    [60, 0.55, 14],
+    [25, 0.8, 10],
+    [8, 1, 7],
+  ]) {
+    g.shadowColor = color;
+    g.shadowBlur = blur;
+    g.strokeStyle = color;
+    g.globalAlpha = alpha;
+    g.lineWidth = width;
+    g.strokeText(text, 512, 132);
+  }
+  g.shadowBlur = 0;
+  g.globalAlpha = 1;
+  g.strokeStyle = "#eafff2";
+  g.lineWidth = 3;
+  g.strokeText(text, 512, 132);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 export function buildRoom(avatar = {}) {
   const group = new THREE.Group();
   const mats = [];
@@ -415,13 +498,94 @@ export function buildRoom(avatar = {}) {
   const rug = add(new THREE.CircleGeometry(1.35, 64), std(0x111726, { roughness: 1 }), 0, 0.003, -0.2);
   rug.rotation.x = -Math.PI / 2;
 
-  const wallMat = std(0x0c0f16, { roughness: 0.95 });
-  add(new THREE.PlaneGeometry(14, 5), wallMat, 0, 2.5, -1.75);
-  const sideWall = add(new THREE.PlaneGeometry(8, 5), wallMat, -2.6, 2.5, 1);
+  // paredes de tijolo escuro (cada parede com a sua repetição da textura)
+  const bricks = makeBricks();
+  const brickMat = (w, h) => {
+    const map = bricks.map.clone();
+    const bumpMap = bricks.bumpMap.clone();
+    map.repeat.set(w, h);
+    bumpMap.repeat.set(w, h);
+    return std(0x9aa3b5, { map, bumpMap, bumpScale: 2.5, roughness: 0.92 });
+  };
+  add(new THREE.PlaneGeometry(14, 5), brickMat(14, 5), 0, 2.5, -1.75);
+  const sideWall = add(new THREE.PlaneGeometry(8, 5), brickMat(8, 5), -2.6, 2.5, 1);
   sideWall.rotation.y = Math.PI / 2;
+  const rightWall = add(new THREE.PlaneGeometry(8, 5), brickMat(8, 5), 3.35, 2.5, 1);
+  rightWall.rotation.y = -Math.PI / 2;
+  // rodapé
+  const baseMat = std(0x07080a, { roughness: 0.6 });
+  add(new THREE.BoxGeometry(14, 0.08, 0.02), baseMat, 0, 0.04, -1.74);
+  const baseR = add(new THREE.BoxGeometry(8, 0.08, 0.02), baseMat, 3.34, 0.04, 1);
+  baseR.rotation.y = -Math.PI / 2;
 
   // Janela com a cidade
-  const win = add(new THREE.PlaneGeometry(1.5, 0.95), basic(0xffffff, { map: makeCity(), opacity: 1 }), -1.35, 1.55, -1.74);
+  // o vidro tem gotas de chuva escorrendo, que refratam a cidade
+  const winU = { uCity: { value: makeCity() }, uTime: { value: 0 }, uOpacity: { value: 1 } };
+  const winMat = new THREE.ShaderMaterial({
+    uniforms: winU,
+    transparent: true,
+    vertexShader: `
+      varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `
+      uniform sampler2D uCity;
+      uniform float uTime, uOpacity;
+      varying vec2 vUv;
+      float h21(vec2 p) { p = fract(p * vec2(233.34, 851.73)); p += dot(p, p + 23.45); return fract(p.x * p.y); }
+      // xy: desvio da refração, z: máscara da gota
+      vec3 runningDrops(vec2 uv, float t, float cells) {
+        vec2 st = vec2(uv.x * cells * 1.6, uv.y * cells);
+        vec2 id = floor(st);
+        vec2 gv = fract(st) - 0.5;
+        float n = h21(id);
+        if (n < 0.4) return vec3(0.0);
+        float ph = fract(t * (0.04 + n * 0.08) + n * 7.0);
+        // desce aos trancos, como gota de verdade
+        float y = 0.42 - (ph + 0.03 * sin(ph * 50.0)) * 0.84;
+        float x = (fract(n * 13.7) - 0.5) * 0.5 + 0.03 * sin(ph * 18.0 + n * 10.0);
+        vec2 d = (gv - vec2(x, y)) * vec2(1.6, 1.0);
+        float r = 0.1 + 0.05 * fract(n * 31.0);
+        float m = smoothstep(r, r * 0.5, length(d));
+        // gotinhas deixadas no rastro, acima da gota
+        vec2 bd = vec2((gv.x - x) * 1.6 * 7.0, fract(gv.y * 7.0) - 0.5);
+        float trail = smoothstep(0.35, 0.15, length(bd)) * step(y, gv.y) * (1.0 - smoothstep(y, 0.5, gv.y));
+        return vec3(d * m * 3.0 + bd * trail * 0.15, max(m, trail * 0.7));
+      }
+      vec3 staticDrops(vec2 uv, float cells) {
+        vec2 st = uv * vec2(cells * 1.6, cells);
+        vec2 id = floor(st);
+        vec2 gv = fract(st) - 0.5;
+        float n = h21(id + 17.0);
+        vec2 c = vec2(fract(n * 7.3), fract(n * 19.1)) - 0.5;
+        vec2 d = gv - c * 0.7;
+        float m = smoothstep(0.2, 0.1, length(d)) * step(0.72, n);
+        return vec3(d * m, m);
+      }
+      void main() {
+        vec3 a = runningDrops(vUv, uTime, 6.0);
+        vec3 b = runningDrops(vUv * 1.37 + 0.23, uTime * 1.15, 10.0);
+        vec3 c = staticDrops(vUv, 26.0);
+        vec2 off = (a.xy + b.xy) * 0.03 + c.xy * 0.02;
+        float m = clamp(a.z + b.z + c.z, 0.0, 1.0);
+        // vidro embaçado: a cidade borrada; dentro das gotas ela aparece nítida e invertida
+        vec3 blur = vec3(0.0);
+        for (int i = 0; i < 8; i++) {
+          float ang = float(i) * 0.785;
+          blur += texture2D(uCity, vUv + vec2(cos(ang), sin(ang)) * 0.008).rgb;
+        }
+        blur /= 8.0;
+        vec3 sharp = texture2D(uCity, vUv - off * 4.0).rgb;
+        vec3 col = mix(blur * 0.8, sharp * 1.25 + 0.02, m);
+        gl_FragColor = vec4(col, uOpacity);
+        #include <colorspace_fragment>
+      }`,
+  });
+  Object.defineProperty(winMat, "opacity", {
+    get: () => winU.uOpacity.value,
+    set: (v) => (winU.uOpacity.value = v),
+  });
+  mats.push(winMat);
+  const win = add(new THREE.PlaneGeometry(1.5, 0.95), winMat, -1.35, 1.55, -1.74);
   const frameMat = std(0x15181f);
   [
     [1.58, 0.05, 0, 0.5],
@@ -462,6 +626,62 @@ export function buildRoom(avatar = {}) {
   }
   add(new THREE.CylinderGeometry(0.05, 0.04, 0.08, 20), std(0x3f3f46), 1.6, 2.005, -1.62);
   add(new THREE.CapsuleGeometry(0.03, 0.08, 6, 10), std(0x166534), 1.6, 2.1, -1.62);
+
+  // luz de LED sob a prateleira, lavando os tijolos
+  add(new THREE.BoxGeometry(0.86, 0.006, 0.01), basic(0x22d3ee), 1.35, 1.603, -1.53);
+  const shelfWash = new THREE.RectAreaLight(0x22d3ee, 2.2, 0.86, 0.05);
+  shelfWash.position.set(1.35, 1.6, -1.55);
+  shelfWash.lookAt(1.35, 0.9, -1.7);
+  group.add(shelfWash);
+
+  // Letreiro neon na parede, acima do monitor
+  const neonMat = basic(0xffffff, {
+    map: makeNeon("> whoami_", "#22ff88"),
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const neon = add(new THREE.PlaneGeometry(0.8, 0.2), neonMat, 0.25, 1.72, -1.735);
+  neon.renderOrder = 1; // desenhado depois das paredes (que também são transparentes)
+  const neonLight = new THREE.RectAreaLight(0x22ff88, 3, 1.0, 0.15);
+  neonLight.position.set(0.25, 1.72, -1.7);
+  neonLight.lookAt(0.25, 1.0, 0.5);
+  group.add(neonLight);
+
+  // Rack de servidores no canto, com LEDs piscando
+  const rack = new THREE.Group();
+  rack.position.set(2.85, 0, 1.7);
+  rack.rotation.y = -Math.PI / 2 - 0.35;
+  group.add(rack);
+  const rackMat = std(0x0b0c10, { roughness: 0.35, metalness: 0.8 });
+  const RH = 1.9;
+  add(rbox(0.62, RH, 0.7, 0.012), rackMat, 0, RH / 2, 0, rack);
+  // frente escura onde ficam os servidores
+  add(new THREE.BoxGeometry(0.54, RH - 0.12, 0.01), std(0x030304, { roughness: 0.5 }), 0, RH / 2, 0.351, rack);
+  const rackLeds = [];
+  const ledGeo = new THREE.BoxGeometry(0.012, 0.008, 0.004);
+  const ledCols = [0x22c55e, 0x22c55e, 0x22c55e, 0x38bdf8, 0xf59e0b];
+  const ledMats = ledCols.map((c) => basic(c));
+  seed = 404;
+  const unitMat = std(0x16181e, { roughness: 0.4, metalness: 0.6 });
+  const ventMat = std(0x0a0b0e, { roughness: 0.8 });
+  for (let u = 0; u < 12; u++) {
+    const h = u % 4 === 0 ? 0.16 : 0.1;
+    const y = 0.12 + u * 0.135 + h / 2;
+    if (y + h / 2 > RH - 0.08) break;
+    add(new THREE.BoxGeometry(0.5, h - 0.012, 0.02), unitMat, 0, y, 0.36, rack);
+    // grade de ventilação e baias de disco
+    add(new THREE.BoxGeometry(0.2, h - 0.04, 0.004), ventMat, 0.1, y, 0.372, rack);
+    for (let k = 0; k < 10; k++) {
+      const led = add(ledGeo, ledMats[Math.floor(rand() * ledMats.length)], -0.22 + k * 0.024, y + (h / 2 - 0.022), 0.373, rack);
+      led.userData.phase = rand() * 20;
+      led.userData.rate = 2 + rand() * 14;
+      rackLeds.push(led);
+    }
+  }
+  // luz verde que escapa do rack
+  const rackGlow = new THREE.PointLight(0x22c55e, 1.2, 2.2, 2);
+  rackGlow.position.set(0, 1.0, 0.6);
+  rack.add(rackGlow);
 
   // --- Mesa ---------------------------------------------------------------
   // tampo de madeira escura com pés de metal preto
@@ -1051,7 +1271,7 @@ export function buildRoom(avatar = {}) {
   wallRain.uniforms.uGain.value = 0.4;
   mats.push(wallRain);
   const rainWall = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 4.2), wallRain);
-  rainWall.position.set(3.2, 1.6, 0.6);
+  rainWall.position.set(3.33, 1.6, 0.6);
   rainWall.rotation.y = -Math.PI / 2;
   group.add(rainWall);
 
@@ -1090,6 +1310,12 @@ export function buildRoom(avatar = {}) {
     shaftUniforms.uTime.value = time;
     if (!reduce) {
       if (person) person.update(time);
+      winU.uTime.value = time;
+      rackLeds.forEach((l) => (l.visible = Math.sin(time * l.userData.rate + l.userData.phase) > -0.2));
+      // o neon às vezes pisca
+      const flick = Math.sin(time * 0.7) > 0.97 && Math.random() < 0.5 ? 0.25 : 1;
+      neonMat.color.setScalar(flick);
+      neonLight.intensity = 3 * flick;
       // LEDs do switch
       leds.forEach((l) => (l.visible = Math.sin(time * 9 + l.userData.phase * 3) > -0.3 || Math.random() < 0.1));
       // vapor
