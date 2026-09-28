@@ -31,6 +31,10 @@ Tudo que aparece no site está em [`assets/js/data.js`](assets/js/data.js):
 - `assets/js/main.js`: cena 3D (three.js), câmera que se afasta de dentro do cérebro, mapa neural, controles de órbita, busca, painel de detalhes e a lista acessível no fim da página.
 - `assets/vendor/three/`: three.js r169 (licença MIT) incluído no repositório, sem depender de CDN.
 
+## Cache
+
+O `index.html` carrega os arquivos com `?v=8` (e o `data.js` pelo importmap). Ao mudar CSS ou JS, aumente esse número nos quatro lugares para os navegadores baixarem a versão nova em vez de usar a antiga do cache.
+
 ## Deploy
 
 Funciona em qualquer hospedagem estática: GitHub Pages (Settings → Pages → branch `main`), Vercel ou Netlify.
