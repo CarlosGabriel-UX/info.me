@@ -1,4 +1,4 @@
-// Cena de abertura: o quarto, a mesa e o personagem (um holograma) sentado no computador.
+// Cena de abertura: o quarto, a mesa e o personagem (feito de código, estilo Matrix) sentado no computador.
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
@@ -757,46 +757,88 @@ export function buildRoom(avatar = {}) {
     addClump(Math.PI + PART - 0.3 - i * 0.34, 0.74 + (rand() - 0.5) * 0.06, 0.04, 0.015, 0.075, new THREE.Vector3(-0.3, -0.6, 1), 0.0);
   }
 
-  // --- Holograma -----------------------------------------------------------
-  // O personagem é projetado: brilho nas bordas (fresnel), faixas de varredura
-  // subindo e os vértices como pontos de luz, no mesmo estilo dos neurônios.
-  const HOLO = new THREE.Color(0x38bdf8);
-  const holoUniforms = { uTime: { value: 0 } };
+  // --- Personagem feito de código (estilo Matrix) ---------------------------
+  // O corpo é só a silhueta: por dentro dela cai uma chuva de caracteres verdes
+  // (katakana e números espelhados), com a ponta de cada coluna mais clara e um
+  // brilho verde nas bordas.
+  const HOLO = new THREE.Color(0x22ff66);
+  const glyphs = (() => {
+    const c = document.createElement("canvas");
+    c.width = c.height = 512;
+    const g = c.getContext("2d");
+    g.fillStyle = "#000";
+    g.fillRect(0, 0, 512, 512);
+    g.fillStyle = "#fff";
+    g.font = "bold 50px monospace";
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    const chars = "ｦｱｳｴｵｶｷｹｺｻｼｽｾｿﾀﾂﾃﾅﾆﾇﾈﾊﾋﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜ0123456789Z:.=*+-<>¦|ｸﾁﾄﾉﾌﾍﾖﾙﾚﾛﾝ";
+    for (let i = 0; i < 64; i++) {
+      const x = (i % 8) * 64 + 32;
+      const y = Math.floor(i / 8) * 64 + 34;
+      g.save();
+      g.translate(x, y);
+      g.scale(-1, 1); // espelhado, como no filme
+      g.fillText(chars[i % chars.length], 0, 0);
+      g.restore();
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.minFilter = THREE.LinearFilter;
+    t.generateMipmaps = false;
+    return t;
+  })();
+  const holoUniforms = {
+    uTime: { value: 0 },
+    uGlyphs: { value: glyphs },
+    uCell: { value: 14 * Math.min(window.devicePixelRatio || 1, 2) },
+  };
   function holoMaterial() {
     const m = new THREE.ShaderMaterial({
-      uniforms: { uTime: holoUniforms.uTime, uColor: { value: HOLO }, uOpacity: { value: 1 } },
+      uniforms: { ...holoUniforms, uColor: { value: HOLO }, uOpacity: { value: 1 } },
       vertexShader: `
         varying vec3 vN;
         varying vec3 vV;
-        varying float vY;
         void main() {
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           vN = normalize(normalMatrix * normal);
           vV = normalize(-mv.xyz);
-          vY = (modelMatrix * vec4(position, 1.0)).y;
           gl_Position = projectionMatrix * mv;
         }`,
       fragmentShader: `
         uniform float uTime;
+        uniform sampler2D uGlyphs;
+        uniform float uCell;
         uniform vec3 uColor;
         uniform float uOpacity;
         varying vec3 vN;
         varying vec3 vV;
-        varying float vY;
+        float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         void main() {
-          float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.2);
-          float lines = 0.75 + 0.25 * sin(vY * 520.0 - uTime * 6.0);
-          float band = smoothstep(0.08, 0.0, abs(fract(vY * 0.9 - uTime * 0.25) - 0.5));
-          float flick = 0.92 + 0.08 * sin(uTime * 37.0) * sin(uTime * 13.0);
-          float a = (0.05 + 0.75 * f + 0.25 * band) * lines * flick * uOpacity;
-          gl_FragColor = vec4(uColor * (0.6 + 0.6 * f) * a, a);
+          float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.0);
+          vec2 cell = floor(gl_FragCoord.xy / uCell);
+          vec2 inCell = fract(gl_FragCoord.xy / uCell);
+          float seed = hash(vec2(cell.x, 3.7));
+          // cada coluna tem uma "gota" descendo, com rastro que apaga
+          float period = 40.0 + floor(seed * 30.0);
+          float head = fract(uTime * (0.12 + seed * 0.22) + seed * 7.0) * period;
+          float row = mod(-cell.y, period);
+          float d = mod(head - row, period);
+          float trail = exp(-d * 0.16);
+          float isHead = 1.0 - step(1.0, d);
+          float idx = floor(hash(cell + floor(uTime * (1.5 + seed * 5.0) + seed * 20.0)) * 64.0);
+          vec2 guv = (vec2(mod(idx, 8.0), 7.0 - floor(idx / 8.0)) + inCell) / 8.0;
+          float glyph = texture2D(uGlyphs, guv).r;
+          vec3 col = mix(uColor * 0.8, vec3(0.8, 1.0, 0.85), isHead);
+          float rain = glyph * (0.15 + 1.5 * trail);
+          float a = (rain + 0.04 + 0.32 * f) * uOpacity;
+          gl_FragColor = vec4((col * rain + uColor * (0.04 + 0.32 * f)) * uOpacity, a);
         }`,
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
     // main.js controla opacity/depthWrite de todos os materiais da sala;
-    // aqui a opacidade vai para o uniform e o holograma nunca escreve profundidade.
+    // aqui a opacidade vai para o uniform e o personagem nunca escreve profundidade.
     Object.defineProperty(m, "opacity", { get: () => m.uniforms.uOpacity.value, set: (v) => (m.uniforms.uOpacity.value = v) });
     Object.defineProperty(m, "depthWrite", { get: () => false, set: () => {} });
     return m;
@@ -807,9 +849,9 @@ export function buildRoom(avatar = {}) {
     new THREE.PointsMaterial({
       size: 0.0055,
       map: GLOW,
-      color: 0x7dd3fc,
+      color: 0x4ade80,
       transparent: true,
-      opacity: 0.55,
+      opacity: 0.25,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
@@ -842,9 +884,9 @@ export function buildRoom(avatar = {}) {
     }
   });
   // base do projetor: anel de luz no chão, embaixo da cadeira
-  const ring = add(new THREE.RingGeometry(0.42, 0.44, 64), basic(0x38bdf8, { opacity: 0.8, side: THREE.DoubleSide }), 0, 0.006, 0.05);
+  const ring = add(new THREE.RingGeometry(0.42, 0.44, 64), basic(0x22ff66, { opacity: 0.8, side: THREE.DoubleSide }), 0, 0.006, 0.05);
   ring.rotation.x = -Math.PI / 2;
-  const ringGlow = add(new THREE.CircleGeometry(0.5, 64), basic(0xffffff, { map: GLOW, color: 0x0ea5e9, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }), 0, 0.004, 0.05);
+  const ringGlow = add(new THREE.CircleGeometry(0.5, 64), basic(0xffffff, { map: GLOW, color: 0x16a34a, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }), 0, 0.004, 0.05);
   ringGlow.rotation.x = -Math.PI / 2;
 
   // --- Luz geral ----------------------------------------------------------
