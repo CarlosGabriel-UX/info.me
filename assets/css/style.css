@@ -536,3 +536,29 @@ body.timeline .controls-hint { opacity: 0; }
 /* com o terminal aberto no canto esquerdo, a legenda vai para a direita */
 body.shell-open .tl-caption { left: auto; right: 16px; transform: none; max-width: calc(100vw - 590px); }
 @media (min-width: 1100px) { body.shell-open .map-ui { padding-left: 572px; } }
+
+/* ---------- Multiverso: links para a nave e selo dos universos de exemplo ---------- */
+.btn.nave { color: #bae6fd; border-color: rgba(56, 189, 248, 0.45); background: rgba(6, 18, 36, 0.8); }
+.btn.nave:hover { border-color: #38bdf8; background: rgba(12, 32, 60, 0.9); }
+[data-real][hidden] { display: none !important; }
+.demo-badge {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  margin: 0;
+  padding: 7px 14px;
+  border: 1px solid rgba(250, 204, 21, 0.45);
+  border-radius: 999px;
+  background: rgba(20, 16, 4, 0.8);
+  backdrop-filter: blur(6px);
+  color: #fde68a;
+  font: 12px var(--mono);
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.demo-badge strong { color: #facc15; text-transform: uppercase; letter-spacing: 0.1em; margin-right: 6px; }
+.demo-badge[hidden] { display: none; }
+body.exploring .demo-badge { top: 64px; }

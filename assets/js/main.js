@@ -6,7 +6,7 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
-import { PROFILE as P } from "./data.js";
+import { ACTIVE as P, ACTIVE_UNIVERSE as U, shipUrl, viaHash } from "./universes.js";
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const $ = (id) => document.getElementById(id);
@@ -30,7 +30,19 @@ const rand = () => {
 const catById = Object.fromEntries(P.categories.map((c) => [c.id, c]));
 $("summary").textContent = P.summary;
 $("footName").textContent = P.fullName;
-$("linkedin").href = P.linkedin;
+if (P.linkedin) $("linkedin").href = P.linkedin;
+// Universo de exemplo (multiverso): marca como fictício e esconde o que é só do Carlos (CV, LinkedIn)
+if (U.demo) {
+  document.documentElement.classList.add("demo-universe");
+  document.title = `${P.name} (exemplo) · info.me multiverso`;
+  document.querySelectorAll("[data-real]").forEach((el) => (el.hidden = true));
+  $("demoBadge").hidden = false;
+}
+// Botões que levam à nave: quem veio de outro universo volta para perto dele
+document.querySelectorAll("[data-nave]").forEach((a) => (a.href = shipUrl(U)));
+if (viaHash) document.querySelectorAll("[data-nave-label]").forEach((a) => (a.textContent = "Voltar à nave ✦"));
+// trocar o #u=... na barra de endereço troca de universo
+window.addEventListener("hashchange", () => window.location.reload());
 
 const card = (n) => {
   const c = catById[n.category].color;
