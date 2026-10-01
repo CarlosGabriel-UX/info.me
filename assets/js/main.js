@@ -31,12 +31,21 @@ const catById = Object.fromEntries(P.categories.map((c) => [c.id, c]));
 $("summary").textContent = P.summary;
 $("footName").textContent = P.fullName;
 if (P.linkedin) $("linkedin").href = P.linkedin;
+else $("footLi").hidden = true;
 // Universo de exemplo (multiverso): marca como fictício e esconde o que é só do Carlos (CV, LinkedIn)
 if (U.demo) {
   document.documentElement.classList.add("demo-universe");
   document.title = `${P.name} (exemplo) · info.me multiverso`;
   document.querySelectorAll("[data-real]").forEach((el) => (el.hidden = true));
   $("demoBadge").hidden = false;
+}
+// Universo da própria pessoa (criar.html): sem o currículo do Carlos, com atalho para editar
+if (U.mine) {
+  document.documentElement.classList.add("mine-universe");
+  document.title = `${P.name} · meu universo · info.me`;
+  document.querySelectorAll("[data-real]").forEach((el) => (el.hidden = true));
+  document.querySelectorAll("[data-criar]").forEach((a) => (a.textContent = a.classList.contains("btn") ? "Editar meu universo ✎" : "Editar meu universo"));
+  $("mineBadge").hidden = false;
 }
 // Botões que levam à nave: quem veio de outro universo volta para perto dele
 document.querySelectorAll("[data-nave]").forEach((a) => (a.href = shipUrl(U)));

@@ -4,6 +4,7 @@
 //
 // O mapa (index.html) escolhe o perfil pelo hash: index.html#u=demo-dev. Sem hash, é o do Carlos.
 import { PROFILE } from "./data.js";
+import { loadMine, MY_ID } from "./meu-universo.js";
 
 // Posições das regiões dentro do cérebro 3D (mesmo espaço usado em data.js)
 const POS = [
@@ -349,6 +350,11 @@ export const UNIVERSES = [
   { id: "demo-dados", demo: true, profile: DATA },
   { id: "demo-games", demo: true, profile: GAMEDEV },
 ];
+// O universo da própria pessoa (criar.html), se ela já criou um neste navegador.
+// `mine: true` aparece como "você" no multiverso.
+const MINE = typeof window !== "undefined" ? loadMine() : null;
+if (MINE) UNIVERSES.push({ id: MY_ID, demo: false, mine: true, profile: MINE });
+export const MY_UNIVERSE = MINE ? UNIVERSES[UNIVERSES.length - 1] : null;
 export const HOME_ID = "carlos";
 export const universeById = (id) => UNIVERSES.find((u) => u.id === id) || null;
 
@@ -363,6 +369,9 @@ function fromHash() {
   return m ? universeById(decodeURIComponent(m[1])) : null;
 }
 const hashed = typeof window !== "undefined" ? fromHash() : null;
+// index.html#u=meu sem universo salvo neste navegador: vai para a página de criar
+if (typeof window !== "undefined" && !hashed && /(?:^#|&)u=meu\b/.test(window.location.hash || "") && /index\.html$|\/$/.test(window.location.pathname))
+  window.location.replace("criar.html");
 export const ACTIVE_UNIVERSE = hashed || universeById(HOME_ID);
 export const ACTIVE = ACTIVE_UNIVERSE.profile;
 export const viaHash = !!hashed;

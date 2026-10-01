@@ -8,7 +8,7 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
-import { UNIVERSES, universeById, mapUrl, HOME_ID } from "./universes.js";
+import { UNIVERSES, universeById, mapUrl, HOME_ID, MY_UNIVERSE } from "./universes.js";
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const $ = (id) => document.getElementById(id);
@@ -666,7 +666,8 @@ UNIVERSES.forEach((u, idx) => {
   const el = document.createElement("div");
   el.className = "uni-label";
   el.style.setProperty("--c", P.categories[Math.min(2, K - 1)].color);
-  el.innerHTML = `<span class="ul-in"><span class="ul-name">${esc(P.name)}${u.demo ? `<span class="chip-demo">exemplo</span>` : ""}</span><span class="ul-role">${esc(
+  if (u.mine) el.classList.add("mine");
+  el.innerHTML = `<span class="ul-in"><span class="ul-name">${esc(P.name)}${u.demo ? `<span class="chip-demo">exemplo</span>` : ""}${u.mine ? `<span class="chip-you">você</span>` : ""}</span><span class="ul-role">${esc(
     P.role.split(" · ")[0]
   )}</span><span class="ul-meta">${P.nodes.length} neurônios · ${K} regiões</span></span>`;
   el.title = `Ir em dobra até o universo de ${P.name}`;
@@ -1236,13 +1237,19 @@ $("helpBtn").addEventListener("click", (e) => {
 $("helpClose").addEventListener("click", () => toggleHelp(false));
 $("helpGo").addEventListener("click", () => toggleHelp(false));
 
+// atalho para criar (ou editar) o próprio universo
+if (MY_UNIVERSE) {
+  $("criarBtn").textContent = "Editar meu universo ✎";
+  $("criarBtn").title = "Editar o seu universo (salvo só neste navegador)";
+}
+
 const listEl = $("uniList");
 listEl.innerHTML = galaxies
   .map(
     (g, i) =>
       `<li><button type="button" data-i="${i}" style="--c:${g.P.categories[Math.min(2, g.P.categories.length - 1)].color}" title="Ir em dobra até o universo de ${esc(
         g.P.name
-      )}"><span class="dot"></span><span class="nm">${esc(g.P.name)}${g.u.demo ? `<span class="chip-demo">exemplo</span>` : ""}<span class="rl">${esc(
+      )}"><span class="dot"></span><span class="nm">${esc(g.P.name)}${g.u.demo ? `<span class="chip-demo">exemplo</span>` : ""}${g.u.mine ? `<span class="chip-you">você</span>` : ""}<span class="rl">${esc(
         g.P.role.split(" · ")[0]
       )}</span></span><span class="ds" data-ds></span></button></li>`
   )
@@ -1290,7 +1297,7 @@ function updateHud(dt) {
   hudT -= dt;
   if (hudT > 0) return;
   hudT = 0.1;
-  const name = `${n.P.name}${n.u.demo ? " (exemplo)" : ""}`;
+  const name = `${n.P.name}${n.u.demo ? " (exemplo)" : n.u.mine ? " (você)" : ""}`;
   ui.nearName.textContent = name;
   ui.nearDist.textContent = close ? "ao alcance · aperte Enter" : `${al(n.dist)} · ${n.P.role.split(" · ")[0]}`;
   if (close) ui.promptTxt.textContent = `para entrar no universo de ${name}`;
@@ -1440,7 +1447,7 @@ window.__multiverso = {
   get nearest() {
     return nearest && { id: nearest.g.u.id, dist: nearest.dist, R: nearest.g.R, inRange: nearest.dist < nearest.g.R * ENTER_K };
   },
-  universes: galaxies.map((g) => ({ id: g.u.id, name: g.P.name, demo: g.u.demo, center: g.center.toArray(), R: g.R })),
+  universes: galaxies.map((g) => ({ id: g.u.id, name: g.P.name, demo: g.u.demo, mine: !!g.u.mine, center: g.center.toArray(), R: g.R })),
   warpTo: (id) => {
     const g = galaxies.find((x) => x.u.id === id);
     if (g) warpTo(g);
