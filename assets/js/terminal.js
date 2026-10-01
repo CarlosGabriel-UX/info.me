@@ -1,6 +1,7 @@
 // Abertura: um terminal roda um script que imprime o perfil (tirado de data.js),
 // depois dá zoom no cursor e revela o mapa neural. main.js escuta o evento "intro:enter".
 import { PROFILE as P } from "./data.js";
+import { track } from "./analytics.js";
 
 const root = document.getElementById("term");
 const win = document.getElementById("termWin");
@@ -122,6 +123,7 @@ function enter() {
   document.documentElement.classList.remove("intro-on");
   window.__introEntered = true;
   window.dispatchEvent(new Event("intro:enter"));
+  track(skipped ? "intro/pulou" : "intro/assistiu", skipped ? "abertura pulada" : "abertura assistida até o fim");
   setTimeout(() => root.remove(), reduce ? 400 : 1500);
 }
 
