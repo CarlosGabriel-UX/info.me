@@ -1,6 +1,6 @@
 // Abertura: um terminal roda um script que imprime o perfil (tirado de data.js),
 // depois dá zoom no cursor e revela o mapa neural. main.js escuta o evento "intro:enter".
-import { PROFILE as P } from "./data.js";
+import { ACTIVE as P, viaHash } from "./universes.js";
 import { track } from "./analytics.js";
 
 const root = document.getElementById("term");
@@ -14,6 +14,7 @@ const byCat = (id) => P.nodes.filter((n) => n.category === id);
 const catLabel = Object.fromEntries(P.categories.map((c) => [c.id, c.label]));
 const firstClause = (t) => (t || "").split(/[.;]/)[0].trim();
 const [role, focus] = P.role.split(" · ");
+const LI = P.linkedin || "";
 const dots = (k, w = 21) => `${k} ${".".repeat(Math.max(2, w - k.length))}`;
 
 // Cada linha: { cmd } é digitada depois do prompt; { html } aparece de uma vez, como saída.
@@ -28,13 +29,13 @@ const date = new Date().toLocaleString("pt-BR", { weekday: "short", day: "2-digi
 const LINES = [
   { html: `<span class="m">Último login: ${esc(date)} em ttys001</span>` },
   { cmd: "./perfil.sh --fonte linkedin" },
-  { html: `<span class="m">[ .. ] lendo perfil de ${esc(P.linkedin.replace(/^https?:\/\//, ""))}</span>`, pause: 380 },
+  { html: `<span class="m">[ .. ] lendo perfil de ${esc(LI.replace(/^https?:\/\//, "") || "perfil")}</span>`, pause: 380 },
   { html: `<span class="ok">[ OK ]</span> <span class="m">perfil carregado</span>`, gap: true },
   kv("Usuário", esc(P.fullName), "hi"),
   kv("Função", esc(role)),
   ...(focus ? [kv("Foco", esc(focus))] : []),
   kv("Local", esc(P.location)),
-  kv("LinkedIn", `<a href="${esc(P.linkedin)}" target="_blank" rel="noopener">${esc(P.linkedin.replace(/^https?:\/\//, ""))}</a>`),
+  ...(LI ? [kv("LinkedIn", `<a href="${esc(LI)}" target="_blank" rel="noopener">${esc(LI.replace(/^https?:\/\//, ""))}</a>`)] : []),
   head("Resumo"),
   { html: `<span class="v">${esc(P.summary)}</span>`, ind: true },
   head("Formação"),
@@ -137,4 +138,11 @@ root.addEventListener("click", skip);
 window.addEventListener("keydown", skip);
 window.addEventListener("intro:enter", () => window.removeEventListener("keydown", skip), { once: true });
 
-run();
+// Chegando pela nave (index.html#u=...), o mergulho no mapa começa direto, sem o terminal de abertura
+if (viaHash) {
+  done = true;
+  root.remove();
+  document.documentElement.classList.remove("intro-on");
+  window.__introEntered = true;
+  window.dispatchEvent(new Event("intro:enter"));
+} else run();

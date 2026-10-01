@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Multiverso · info.me</title>
+  <meta name="description" content="Pilote uma nave entre universos: cada galáxia é o mapa neural de uma pessoa. Chegue perto e entre na mente dela.">
+  <meta name="theme-color" content="#000000">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/multiverso.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./assets/vendor/three/three.module.min.js",
+        "three/addons/": "./assets/vendor/three/"
+      }
+    }
+  </script>
+</head>
+<body class="mv">
+  <div class="mv-stage" id="stage">
+    <canvas id="gl" aria-hidden="true"></canvas>
+    <div id="labels"></div>
+  </div>
+
+  <!-- HUD da nave -->
+  <div class="hud" id="hud">
+    <header class="hud-brand">
+      <a class="hud-home" href="index.html" title="Voltar ao mapa neural do Carlos">← info.me</a>
+      <span class="hud-title">Multiverso</span>
+      <span class="hud-sub">cada galáxia é a mente de alguém</span>
+    </header>
+
+    <section class="hud-box hud-near" aria-live="polite">
+      <p class="hud-k">Universo mais próximo</p>
+      <p class="hud-near-name" id="nearName">—</p>
+      <p class="hud-near-dist" id="nearDist"></p>
+    </section>
+
+    <nav class="hud-box hud-list" aria-label="Universos">
+      <p class="hud-k">Universos <span class="hud-k-note">clique para ir em dobra</span></p>
+      <ul id="uniList"></ul>
+    </nav>
+
+    <section class="hud-box hud-speed" aria-label="Painel de voo">
+      <p class="hud-k" id="modeLabel">Manual</p>
+      <p class="hud-speed-val"><span id="speedVal">0</span> <small id="speedUnit">km/s</small></p>
+      <div class="hud-bar" aria-hidden="true"><i id="throttleBar"></i><b id="throttleZero"></b></div>
+      <p class="hud-mini"><span id="throttleTxt">potência 0%</span><span id="boostTxt"></span></p>
+    </section>
+
+    <p class="hud-prompt" id="prompt" hidden>
+      <kbd>Enter</kbd> <span id="promptTxt"></span>
+      <button class="btn primary" id="enterBtn" type="button">Entrar</button>
+    </p>
+
+    <div class="hud-tools">
+      <button class="btn" id="helpBtn" type="button" title="Controles (H)">Controles <kbd>H</kbd></button>
+    </div>
+  </div>
+
+  <!-- Ajuda de controles -->
+  <aside class="mv-help" id="help" aria-labelledby="helpTitle">
+    <button class="panel-close" id="helpClose" type="button" aria-label="Fechar">✕</button>
+    <h2 id="helpTitle">Controles da nave</h2>
+    <dl>
+      <dt><kbd>W</kbd> <kbd>S</kbd></dt><dd>acelerar e frear (segure)</dd>
+      <dt><kbd>A</kbd> <kbd>D</kbd> ou mouse</dt><dd>virar · segure o botão do mouse e aponte</dd>
+      <dt><kbd>Q</kbd> <kbd>E</kbd> · <kbd>Espaço</kbd> <kbd>Ctrl</kbd></dt><dd>subir e descer</dd>
+      <dt><kbd>Shift</kbd></dt><dd>turbo</dd>
+      <dt><kbd>X</kbd></dt><dd>parar a nave</dd>
+      <dt>clique numa galáxia</dt><dd>piloto automático em dobra até ela (ou use a lista)</dd>
+      <dt><kbd>Enter</kbd></dt><dd>entrar no universo mais próximo</dd>
+      <dt>roda do mouse</dt><dd>aproximar ou afastar a câmera</dd>
+      <dt><kbd>Esc</kbd></dt><dd>cancelar o piloto automático</dd>
+    </dl>
+    <p class="mv-help-note">Galáxias marcadas como <span class="chip-demo">exemplo</span> são perfis fictícios, só para demonstração. Dica: <kbd>Ctrl</kbd>+<kbd>W</kbd> fecha a aba no navegador, então prefira <kbd>Q</kbd> <kbd>E</kbd> para subir e descer.</p>
+    <button class="btn primary" id="helpGo" type="button">Decolar</button>
+  </aside>
+
+  <div class="mv-fade" id="fade" aria-hidden="true"></div>
+  <p class="mv-loading" id="loading">aquecendo os motores de dobra…</p>
+  <div class="fallback" id="fallback" hidden>
+    <p>Seu navegador não suporta WebGL, então o multiverso 3D não pode ser exibido. <a href="index.html">Voltar ao info.me</a></p>
+  </div>
+
+  <script type="module" src="assets/js/multiverse.js"></script>
+</body>
+</html>

@@ -1,7 +1,8 @@
 // Terminal interativo por cima do mapa: o visitante digita comandos (help, whoami, certs...)
 // e "mapa <termo>" leva a câmera até o neurônio. Abre com a tecla ` ou o botão "Terminal".
 // Fala com main.js pelos eventos "map:focus" e "map:overview".
-import { PROFILE as P } from "./data.js";
+import { ACTIVE as P, ACTIVE_UNIVERSE as U, UNIVERSES, universeById, mapUrl, shipUrl } from "./universes.js";
+import { PROFILE as OWNER } from "./data.js"; // o dono do site (o CTF manda print para ele)
 import { track, totalVisits } from "./analytics.js";
 
 const $ = (id) => document.getElementById(id);
@@ -13,7 +14,8 @@ const norm = (t) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().tri
 const byCat = (id) => P.nodes.filter((n) => n.category === id);
 const cats = P.categories;
 const catFor = (q) => cats.find((c) => c.id === norm(q) || norm(c.label).startsWith(norm(q)));
-const linkedinShort = P.linkedin.replace(/^https?:\/\//, "");
+const linkedinShort = (P.linkedin || "").replace(/^https?:\/\//, "");
+const onlyReal = () => err("este é um universo de exemplo (perfil fictício): não tem currículo nem LinkedIn.");
 const [role, focus] = P.role.split(" · ");
 const pad = (k, w) => k + " ".repeat(Math.max(1, w - k.length));
 
@@ -44,6 +46,7 @@ const COMMANDS = {
           .map(([k, c]) => `  <span class="ok">${esc(pad(k + (c.args ? " " + c.args : ""), 22))}</span><span class="m">${esc(c.desc)}</span>`),
         ``,
         `<span class="m">dica: Tab completa, ↑ ↓ repetem comandos, Esc fecha.</span>`,
+        `<span class="m">voe entre universos com</span> <span class="ok">nave</span><span class="m">.</span>`,
         `<span class="y">psst:</span> <span class="m">tem uma flag escondida neste site. digite</span> <span class="ok">hint</span> <span class="m">se travar.</span>`,
       ].join("\n"),
   },
@@ -55,7 +58,8 @@ const COMMANDS = {
         kv("função", esc(role)),
         ...(focus ? [kv("foco", esc(focus))] : []),
         kv("local", esc(P.location)),
-        kv("linkedin", `<a href="${esc(P.linkedin)}" target="_blank" rel="noopener">${esc(linkedinShort)}</a>`),
+        ...(P.linkedin ? [kv("linkedin", `<a href="${esc(P.linkedin)}" target="_blank" rel="noopener">${esc(linkedinShort)}</a>`)] : []),
+        ...(U.demo ? [kv("universo", `<span class="y">exemplo · perfil fictício</span>`)] : []),
       ].join("\n"),
   },
   sobre: { desc: "resumo profissional", run: () => `<span class="v">${esc(P.summary)}</span>` },
@@ -128,7 +132,7 @@ const COMMANDS = {
         `<span class="ok">  '._==_==_=_.'</span>`,
         `<span class="ok">  .-\\:      /-.</span>    <span class="hi">FLAG CORRETA!</span>`,
         `<span class="ok"> | (|:.     |) |</span>   <span class="v">Você tem olho de analista de segurança.</span>`,
-        `<span class="ok">  '-|:.     |-'</span>    <span class="v">Me manda um print no</span> <a href="${esc(P.linkedin)}" target="_blank" rel="noopener">LinkedIn</a><span class="v">,</span>`,
+        `<span class="ok">  '-|:.     |-'</span>    <span class="v">Me manda um print no</span> <a href="${esc(OWNER.linkedin)}" target="_blank" rel="noopener">LinkedIn</a><span class="v">,</span>`,
         `<span class="ok">    \\::.    /</span>      <span class="v">vou gostar de saber quem achou.</span>`,
         `<span class="ok">     '::. .'</span>`,
         `<span class="ok">       ) (</span>`,
@@ -177,6 +181,7 @@ const COMMANDS = {
   cv: {
     desc: "baixa meu currículo em PDF",
     run: () => {
+      if (U.demo) return onlyReal();
       const a = document.createElement("a");
       a.href = CV_URL;
       a.download = CV_URL.split("/").pop();
@@ -221,6 +226,7 @@ const COMMANDS = {
   linkedin: {
     desc: "abre meu LinkedIn",
     run: () => {
+      if (!P.linkedin) return onlyReal();
       window.open(P.linkedin, "_blank", "noopener");
       return `<span class="m">abrindo ${esc(linkedinShort)}...</span>`;
     },
@@ -250,11 +256,42 @@ const COMMANDS = {
         .join("\n");
     },
   },
+  nave: {
+    desc: "volta para a nave no multiverso",
+    run: () => {
+      setTimeout(() => window.location.assign(shipUrl(U)), 450);
+      return `<span class="ok">→</span> <span class="m">teletransportando para a ponte da nave...</span>`;
+    },
+  },
+  multiverso: {
+    args: "[universo]",
+    desc: "lista os universos ou entra num deles",
+    run: (a) => {
+      if (!a[0])
+        return [
+          `<span class="h">universos conhecidos</span>`,
+          ...UNIVERSES.map(
+            (u) =>
+              `  <span class="ok">${esc(pad(u.id, 13))}</span><span class="v">${esc(u.profile.name)}</span> <span class="m">· ${esc(
+                u.profile.role.split(" · ")[0]
+              )}</span>${u.demo ? ` <span class="y">(exemplo)</span>` : ""}${u === U ? ` <span class="hi">← você está aqui</span>` : ""}`
+          ),
+          ``,
+          `<span class="m">use</span> <span class="ok">multiverso &lt;universo&gt;</span> <span class="m">para entrar num deles, ou</span> <span class="ok">nave</span> <span class="m">para pilotar até lá.</span>`,
+        ].join("\n");
+      const q = norm(a.join(" "));
+      const u = universeById(q) || UNIVERSES.find((x) => norm(x.profile.name).includes(q) || x.id.includes(q));
+      if (!u) return err(`universo não encontrado: ${esc(a.join(" "))}. digite multiverso para ver a lista.`);
+      if (u === U) return `<span class="m">você já está no universo de</span> <span class="hi">${esc(u.profile.name)}</span>`;
+      setTimeout(() => window.location.assign(mapUrl(u)), 450);
+      return `<span class="ok">→</span> <span class="m">abrindo o universo de</span> <span class="hi">${esc(u.profile.name)}</span>`;
+    },
+  },
   sudo: { run: () => err("visitante não está no arquivo sudoers. Este incidente será reportado. 😉") },
   clear: { desc: "limpa a tela", run: () => (out.innerHTML = "", null) },
   exit: { desc: "fecha o terminal", run: () => (close(), null) },
 };
-const ALIASES = { curriculo: "cv", "currículo": "cv", tema: "theme", dica: "hint",  "?": "help", ajuda: "help", "formação": "formacao", certificados: "certs", resumo: "sobre", cls: "clear", sair: "exit" };
+const ALIASES = { ship: "nave", multiverse: "multiverso", universos: "multiverso", curriculo: "cv", "currículo": "cv", tema: "theme", dica: "hint",  "?": "help", ajuda: "help", "formação": "formacao", certificados: "certs", resumo: "sobre", cls: "clear", sair: "exit" };
 
 function focusMap(q) {
   if (!q) {
