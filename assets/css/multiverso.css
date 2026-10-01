@@ -40,6 +40,22 @@ body.mv.steering .mv-stage #gl { cursor: none; }
   margin-left: 6px;
 }
 .uni-label.near .ul-name { font-size: 22px; }
+.chip-you {
+  display: inline-block;
+  font: 600 10px var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #22ff88;
+  border: 1px solid rgba(34, 255, 136, 0.6);
+  background: rgba(2, 24, 12, 0.75);
+  border-radius: 999px;
+  padding: 1px 7px;
+  vertical-align: 2px;
+  margin-left: 6px;
+  box-shadow: 0 0 12px rgba(34, 255, 136, 0.35);
+}
+.hud-list .chip-you { font-size: 9px; padding: 0 5px; margin-left: 4px; }
+.mv-help-note a { color: #7dd3fc; }
 
 /* HUD */
 .hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; font-family: var(--font); }

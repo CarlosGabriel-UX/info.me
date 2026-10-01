@@ -35,6 +35,8 @@
 
         <!-- Selo dos universos de exemplo (multiverso) -->
         <p class="demo-badge" id="demoBadge" hidden><strong>Universo de exemplo</strong> perfil fictício, só para demonstrar o multiverso</p>
+        <!-- Selo do universo da própria pessoa (criado em criar.html) -->
+        <p class="demo-badge mine-badge" id="mineBadge" hidden><strong>Seu universo</strong> salvo só neste navegador · <a href="criar.html">editar</a></p>
 
         <!-- Legenda da linha do tempo -->
         <p class="tl-caption" id="tlCaption" aria-live="polite"></p>
@@ -46,6 +48,7 @@
             <button class="btn mono" type="button" data-shell title="Abrir o terminal (tecla ')">Terminal &gt;_</button>
             <a class="btn" href="assets/cv-carlos-gabriel.pdf" download data-real data-track="click/cv">Currículo PDF</a>
             <a class="btn nave" href="multiverso.html" data-nave data-nave-label title="Voar pelo multiverso de mapas neurais">Multiverso ✦</a>
+            <a class="btn criar" href="criar.html" data-criar title="Transforme o PDF do seu LinkedIn num mapa neural" data-track="click/criar">Criar meu universo ＋</a>
           </div>
           <p class="map-hint" id="mapHint">Clique num neurônio para ver os detalhes · aperte <kbd>'</kbd> para abrir o terminal</p>
         </div>
@@ -110,7 +113,7 @@
   </section>
 
   <footer>
-    <p><span id="footName"></span> · <span data-real><a id="linkedin" href="#" target="_blank" rel="noopener" data-track="click/linkedin">LinkedIn</a> · <a href="assets/cv-carlos-gabriel.pdf" download data-track="click/cv">Currículo em PDF</a> · </span><a href="multiverso.html" data-nave>Multiverso</a></p>
+    <p><span id="footName"></span> · <span id="footLi"><a id="linkedin" href="#" target="_blank" rel="noopener" data-track="click/linkedin">LinkedIn</a> · </span><span data-real><a href="assets/cv-carlos-gabriel.pdf" download data-track="click/cv">Currículo em PDF</a> · </span><a href="multiverso.html" data-nave>Multiverso</a> · <a href="criar.html" data-criar>Criar meu universo</a></p>
   </footer>
 
   <script type="module" src="assets/js/terminal.js"></script>

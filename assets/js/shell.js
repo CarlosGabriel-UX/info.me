@@ -15,7 +15,10 @@ const byCat = (id) => P.nodes.filter((n) => n.category === id);
 const cats = P.categories;
 const catFor = (q) => cats.find((c) => c.id === norm(q) || norm(c.label).startsWith(norm(q)));
 const linkedinShort = (P.linkedin || "").replace(/^https?:\/\//, "");
-const onlyReal = () => err("este é um universo de exemplo (perfil fictício): não tem currículo nem LinkedIn.");
+const onlyReal = () =>
+  U.mine
+    ? err("seu universo ainda não tem currículo em PDF nem LinkedIn aqui. complete em <a href=\"criar.html\">criar.html</a> (comando criar).")
+    : err("este é um universo de exemplo (perfil fictício): não tem currículo nem LinkedIn.");
 const [role, focus] = P.role.split(" · ");
 const pad = (k, w) => k + " ".repeat(Math.max(1, w - k.length));
 
@@ -46,7 +49,7 @@ const COMMANDS = {
           .map(([k, c]) => `  <span class="ok">${esc(pad(k + (c.args ? " " + c.args : ""), 22))}</span><span class="m">${esc(c.desc)}</span>`),
         ``,
         `<span class="m">dica: Tab completa, ↑ ↓ repetem comandos, Esc fecha.</span>`,
-        `<span class="m">voe entre universos com</span> <span class="ok">nave</span><span class="m">.</span>`,
+        `<span class="m">voe entre universos com</span> <span class="ok">nave</span><span class="m">, e crie o seu com</span> <span class="ok">criar</span><span class="m">.</span>`,
         `<span class="y">psst:</span> <span class="m">tem uma flag escondida neste site. digite</span> <span class="ok">hint</span> <span class="m">se travar.</span>`,
       ].join("\n"),
   },
@@ -181,7 +184,7 @@ const COMMANDS = {
   cv: {
     desc: "baixa meu currículo em PDF",
     run: () => {
-      if (U.demo) return onlyReal();
+      if (U.demo || U.mine) return onlyReal();
       const a = document.createElement("a");
       a.href = CV_URL;
       a.download = CV_URL.split("/").pop();
@@ -274,7 +277,7 @@ const COMMANDS = {
             (u) =>
               `  <span class="ok">${esc(pad(u.id, 13))}</span><span class="v">${esc(u.profile.name)}</span> <span class="m">· ${esc(
                 u.profile.role.split(" · ")[0]
-              )}</span>${u.demo ? ` <span class="y">(exemplo)</span>` : ""}${u === U ? ` <span class="hi">← você está aqui</span>` : ""}`
+              )}</span>${u.demo ? ` <span class="y">(exemplo)</span>` : ""}${u.mine ? ` <span class="ok">(você)</span>` : ""}${u === U ? ` <span class="hi">← você está aqui</span>` : ""}`
           ),
           ``,
           `<span class="m">use</span> <span class="ok">multiverso &lt;universo&gt;</span> <span class="m">para entrar num deles, ou</span> <span class="ok">nave</span> <span class="m">para pilotar até lá.</span>`,
@@ -287,11 +290,18 @@ const COMMANDS = {
       return `<span class="ok">→</span> <span class="m">abrindo o universo de</span> <span class="hi">${esc(u.profile.name)}</span>`;
     },
   },
+  criar: {
+    desc: "cria o seu universo a partir do PDF do LinkedIn",
+    run: () => {
+      setTimeout(() => window.location.assign("criar.html"), 450);
+      return `<span class="ok">→</span> <span class="m">${U.mine ? "abrindo o editor do seu universo..." : "abrindo o criador de universos: traga o PDF do seu LinkedIn"}</span>`;
+    },
+  },
   sudo: { run: () => err("visitante não está no arquivo sudoers. Este incidente será reportado. 😉") },
   clear: { desc: "limpa a tela", run: () => (out.innerHTML = "", null) },
   exit: { desc: "fecha o terminal", run: () => (close(), null) },
 };
-const ALIASES = { ship: "nave", multiverse: "multiverso", universos: "multiverso", curriculo: "cv", "currículo": "cv", tema: "theme", dica: "hint",  "?": "help", ajuda: "help", "formação": "formacao", certificados: "certs", resumo: "sobre", cls: "clear", sair: "exit" };
+const ALIASES = { create: "criar", editar: "criar", "meu-universo": "criar", ship: "nave", multiverse: "multiverso", universos: "multiverso", curriculo: "cv", "currículo": "cv", tema: "theme", dica: "hint",  "?": "help", ajuda: "help", "formação": "formacao", certificados: "certs", resumo: "sobre", cls: "clear", sair: "exit" };
 
 function focusMap(q) {
   if (!q) {

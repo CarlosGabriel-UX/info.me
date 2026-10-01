@@ -562,3 +562,11 @@ body.shell-open .tl-caption { left: auto; right: 16px; transform: none; max-widt
 .demo-badge strong { color: #facc15; text-transform: uppercase; letter-spacing: 0.1em; margin-right: 6px; }
 .demo-badge[hidden] { display: none; }
 body.exploring .demo-badge { top: 64px; }
+#footLi[hidden] { display: none; }
+
+/* Universo da própria pessoa e o atalho para criar o seu */
+.btn.criar { color: #f5d0fe; border-color: rgba(232, 121, 249, 0.45); background: rgba(30, 6, 36, 0.8); }
+.btn.criar:hover { border-color: #e879f9; background: rgba(48, 10, 58, 0.9); }
+.mine-badge { border-color: rgba(34, 255, 136, 0.45); background: rgba(2, 20, 10, 0.85); color: #bbf7d0; pointer-events: auto; }
+.mine-badge strong { color: #22ff88; }
+.mine-badge a { color: #86efac; }
