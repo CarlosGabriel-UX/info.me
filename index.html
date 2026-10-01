@@ -39,9 +39,9 @@
         <!-- Interface do mapa -->
         <div class="map-ui" id="mapUi">
           <div class="map-actions">
-            <button class="btn primary" id="exploreBtn" type="button">Explorar em 3D</button>
+            <button class="btn primary" id="exploreBtn" type="button" data-track="click/explorar">Explorar em 3D</button>
             <button class="btn mono" type="button" data-shell title="Abrir o terminal (tecla ')">Terminal &gt;_</button>
-            <a class="btn" href="assets/cv-carlos-gabriel.pdf" download>Currículo PDF</a>
+            <a class="btn" href="assets/cv-carlos-gabriel.pdf" download data-track="click/cv">Currículo PDF</a>
           </div>
           <p class="map-hint" id="mapHint">Clique num neurônio para ver os detalhes · aperte <kbd>'</kbd> para abrir o terminal</p>
         </div>
@@ -105,7 +105,7 @@
   </section>
 
   <footer>
-    <p><span id="footName"></span> · <a id="linkedin" href="#" target="_blank" rel="noopener">LinkedIn</a> · <a href="assets/cv-carlos-gabriel.pdf" download>Currículo em PDF</a></p>
+    <p><span id="footName"></span> · <a id="linkedin" href="#" target="_blank" rel="noopener" data-track="click/linkedin">LinkedIn</a> · <a href="assets/cv-carlos-gabriel.pdf" download data-track="click/cv">Currículo em PDF</a></p>
   </footer>
 
   <script type="module" src="assets/js/terminal.js"></script>

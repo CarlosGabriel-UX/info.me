@@ -2,6 +2,7 @@
 // e "mapa <termo>" leva a câmera até o neurônio. Abre com a tecla ` ou o botão "Terminal".
 // Fala com main.js pelos eventos "map:focus" e "map:overview".
 import { PROFILE as P } from "./data.js";
+import { track, totalVisits } from "./analytics.js";
 
 const $ = (id) => document.getElementById(id);
 const root = $("shell");
@@ -121,6 +122,7 @@ const COMMANDS = {
       if (!a[0]) return err("use submit flag{...}");
       if (a.join(" ").trim() !== atob(SECRET))
         return err("flag incorreta. continue tentando, ou digite hint.");
+      track("ctf/resolvido", "CTF resolvido");
       return [
         `<span class="ok">   ___________</span>`,
         `<span class="ok">  '._==_==_=_.'</span>`,
@@ -182,6 +184,23 @@ const COMMANDS = {
       a.click();
       a.remove();
       return `<span class="m">baixando</span> <a href="${CV_URL}" download>${esc(a.download)}</a>`;
+    },
+  },
+  stats: {
+    desc: "quantas pessoas já visitaram",
+    run: () => {
+      const line = document.createElement("div");
+      line.className = "ln res";
+      line.innerHTML = `<span class="m">consultando o contador...</span>`;
+      out.appendChild(line);
+      totalVisits().then((n) => {
+        line.innerHTML =
+          n != null
+            ? `<span class="ok">${esc(Number(n).toLocaleString("pt-BR"))}</span> <span class="v">visitantes já passaram por aqui. obrigado por ser um deles!</span>`
+            : `<span class="m">contador indisponível no momento.</span>`;
+        out.scrollTop = out.scrollHeight;
+      });
+      return null;
     },
   },
   cd: {
@@ -273,6 +292,10 @@ function exec(line) {
   hIdx = history.length;
   const name = ALIASES[norm(raw)] || norm(raw);
   const cmd = COMMANDS[name];
+  // conta só o nome do comando (e a área ou tema escolhido), nunca o texto livre digitado
+  const known = cmd ? name : "desconhecido";
+  const arg = cmd && ["cd", "skills", "theme", "mapa"].includes(name) && args[0] ? "/" + args[0] : "";
+  track(`cmd/${known}${arg}`, `terminal: ${known}`);
   const res = cmd ? cmd.run(args) : err(`comando não encontrado: ${esc(raw)}. digite <span class="ok">help</span>.`);
   if (res) print(res, "res");
 }
@@ -328,6 +351,7 @@ function open() {
   document.body.classList.add("shell-open");
   if (!greeted) {
     greeted = true;
+    track("shell/aberto", "terminal interativo aberto");
     print(`<span class="m">info.me shell · digite</span> <span class="ok">help</span> <span class="m">para ver os comandos</span>`);
   }
   input.focus({ preventScroll: true });
@@ -358,3 +382,9 @@ console.log(
   "color:#22ff88;font:bold 14px monospace",
   "color:#86efac;font:12px monospace"
 );
+
+// cliques em botões e links marcados com data-track
+document.addEventListener("click", (e) => {
+  const el = e.target.closest && e.target.closest("[data-track]");
+  if (el) track(el.dataset.track, el.dataset.track);
+});
