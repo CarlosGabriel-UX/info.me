@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Criar meu universo · info.me</title>
+  <meta name="description" content="Transforme o PDF do seu LinkedIn num mapa neural 3D e numa galáxia do multiverso. O arquivo é lido só no seu navegador.">
+  <meta name="theme-color" content="#000000">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/criar.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./assets/vendor/three/three.module.min.js",
+        "three/addons/": "./assets/vendor/three/"
+      }
+    }
+  </script>
+</head>
+<body class="cr">
+  <div class="cr-bg" aria-hidden="true"></div>
+
+  <header class="cr-top">
+    <a class="cr-pill" href="index.html">← info.me</a>
+    <h1 class="cr-title"><span class="cr-prompt">&gt;_</span> criar meu universo</h1>
+    <nav class="cr-nav">
+      <a class="cr-pill" href="multiverso.html">Multiverso ✦</a>
+    </nav>
+  </header>
+
+  <!-- Passo 1: importar o PDF do LinkedIn -->
+  <main class="cr-step" id="step1">
+    <section class="term-win cr-win" aria-labelledby="s1title">
+      <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>visitante@info.me: ~ — importar-linkedin.sh</span></div>
+      <div class="term-body cr-body">
+        <p class="ln"><span class="p-user">visitante@info.me</span><span class="p-sep">:</span><span class="p-dir">~</span><span class="p-sep">$</span> <span class="cmd">./importar-linkedin.sh</span></p>
+        <h2 class="cr-h" id="s1title">Seu currículo vira um universo neural</h2>
+        <p class="cr-lead">Traga o PDF que o LinkedIn gera do seu perfil. Cada formação, certificado, experiência e competência vira um neurônio, ligado ao que tem a ver com ele. Depois é só ajustar e voar até a sua galáxia no multiverso.</p>
+
+        <div class="cr-grid1">
+          <label class="drop" id="drop">
+            <input type="file" id="pdfInput" accept="application/pdf,.pdf">
+            <span class="drop-ico" aria-hidden="true">
+              <svg viewBox="0 0 64 64" width="64" height="64" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 6h22l12 12v40H16z"/><path d="M38 6v12h12"/><path d="M33 48V28m-8 8 8-8 8 8"/></svg>
+            </span>
+            <span class="drop-t">Solte aqui o PDF do seu LinkedIn</span>
+            <span class="drop-s">ou clique para escolher o arquivo</span>
+          </label>
+
+          <div class="howto">
+            <p class="k">## como gerar o PDF</p>
+            <ol>
+              <li>Abra o seu perfil no LinkedIn (no computador).</li>
+              <li>Clique em <b>Mais</b> (ou <b>More</b>), logo abaixo do seu nome.</li>
+              <li>Escolha <b>Salvar em PDF</b> (<b>Save to PDF</b>).</li>
+              <li>Solte o arquivo baixado (algo como <code>Profile.pdf</code>) aqui ao lado.</li>
+            </ol>
+            <p class="privacy"><span class="ok">[ privado ]</span> O PDF é lido <b>só aqui, no seu navegador</b>. Nada é enviado para servidor nenhum. E-mail e telefone são descartados na leitura e nunca ficam guardados.</p>
+          </div>
+        </div>
+
+        <div class="cr-log" id="log" aria-live="polite"></div>
+
+        <div class="cr-alt">
+          <button class="btn" type="button" id="scratchBtn">Começar do zero</button>
+          <label class="btn" for="jsonInput1">Importar JSON</label>
+          <input type="file" id="jsonInput1" accept="application/json,.json" hidden>
+          <button class="btn primary" type="button" id="resumeBtn" hidden>Continuar meu universo salvo</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Passo 2: editor -->
+  <main class="cr-editor" id="step2" hidden>
+    <div class="cr-form" id="form">
+      <section class="card" aria-labelledby="pTitle">
+        <h2 class="card-h" id="pTitle"><span class="n">01</span> Perfil</h2>
+        <div class="fields">
+          <label class="f"><span>Nome curto <small>aparece no centro do mapa e na galáxia</small></span><input id="fName" maxlength="80" autocomplete="off"></label>
+          <label class="f"><span>Nome completo</span><input id="fFull" maxlength="120" autocomplete="off"></label>
+          <label class="f wide"><span>Título <small>headline do LinkedIn; use " · " para separar função e foco</small></span><input id="fRole" maxlength="220" autocomplete="off"></label>
+          <label class="f"><span>Local</span><input id="fLoc" maxlength="120" autocomplete="off"></label>
+          <label class="f"><span>LinkedIn <small>opcional</small></span><input id="fLi" maxlength="160" placeholder="linkedin.com/in/seu-perfil" autocomplete="off"></label>
+          <label class="f wide"><span>Resumo</span><textarea id="fSum" rows="4" maxlength="3000"></textarea></label>
+        </div>
+        <p class="f-note">E-mails e telefones digitados aqui são apagados ao salvar.</p>
+      </section>
+
+      <section class="card" aria-labelledby="cTitle">
+        <h2 class="card-h" id="cTitle"><span class="n">02</span> Regiões e neurônios <small id="cCount"></small></h2>
+        <div id="cats"></div>
+        <button class="btn add" type="button" id="addCat">＋ região</button>
+      </section>
+
+      <section class="card" aria-labelledby="lTitle">
+        <h2 class="card-h" id="lTitle"><span class="n">03</span> Conexões <small id="lCount"></small></h2>
+        <p class="f-note">Sinapses extras entre neurônios, cada uma com o motivo que aparece no painel do mapa.</p>
+        <div class="link-add">
+          <select id="lFrom" aria-label="De"></select>
+          <span class="arrow" aria-hidden="true">⟷</span>
+          <select id="lTo" aria-label="Para"></select>
+          <input id="lWhy" placeholder="motivo (ex.: usada no estágio)" maxlength="200" aria-label="Motivo">
+          <button class="btn" type="button" id="addLink">＋ conexão</button>
+        </div>
+        <label class="link-filter"><span>mostrar conexões de</span> <select id="lFilter"><option value="">todos os neurônios</option></select></label>
+        <ul class="links" id="links"></ul>
+      </section>
+    </div>
+
+    <aside class="cr-side">
+      <div class="preview">
+        <canvas id="pv" aria-label="Prévia 3D do seu universo"></canvas>
+        <div id="pvLabels" aria-hidden="true"></div>
+        <p class="pv-tip" id="pvTip" hidden></p>
+        <p class="pv-stats" id="pvStats"></p>
+        <p class="pv-hint">arraste para girar · clique num neurônio para editar</p>
+      </div>
+
+      <div class="actions">
+        <p class="save-state" id="saveState"></p>
+        <button class="btn primary" type="button" id="saveBtn">Salvar</button>
+        <div class="row">
+          <a class="btn" id="viewBtn" href="index.html#u=meu" target="_blank" rel="noopener">Ver meu universo ↗</a>
+          <a class="btn nave" id="mvBtn" href="multiverso.html#de=meu">Ir para o multiverso ✦</a>
+        </div>
+        <div class="row">
+          <button class="btn" type="button" id="exportBtn">Exportar JSON</button>
+          <label class="btn" for="jsonInput2">Importar JSON</label>
+          <input type="file" id="jsonInput2" accept="application/json,.json" hidden>
+          <button class="btn" type="button" id="againBtn">Outro PDF</button>
+        </div>
+        <button class="btn danger" type="button" id="deleteBtn">Apagar meu universo</button>
+      </div>
+
+      <p class="cr-note"><b>Por enquanto, seu universo fica salvo só neste navegador.</b> Se limpar os dados do site ou trocar de computador, ele some (exporte o JSON para guardar uma cópia). Contas com login do LinkedIn e compartilhamento entre pessoas chegam na próxima fase.</p>
+    </aside>
+  </main>
+
+  <dialog class="cr-dialog" id="dialog">
+    <form method="dialog">
+      <p id="dialogText"></p>
+      <div class="row">
+        <button class="btn" value="cancel">Cancelar</button>
+        <button class="btn danger" value="ok" id="dialogOk">Confirmar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <p class="cr-toast" id="toast" role="status" hidden></p>
+
+  <script type="module" src="assets/js/criar.js"></script>
+</body>
+</html>
