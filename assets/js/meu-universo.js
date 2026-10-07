@@ -5,6 +5,8 @@
 // (data.js), com ids únicos, cores válidas, ligações só entre neurônios que existem e SEM e-mail
 // nem telefone em nenhum texto.
 
+import { normalizeStyle } from "./estilos.js";
+
 export const MY_ID = "meu";
 export const STORAGE_KEY = "infome-meu-universo";
 
@@ -114,6 +116,7 @@ export function normalizeProfile(raw) {
     role: str(p.role, 220).replace(/\s*\n\s*/g, " "),
     location: str(p.location, 120),
     summary: str(p.summary, 3000),
+    style: normalizeStyle(p.style),
     categories: [],
     nodes: [],
     links: [],

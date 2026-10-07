@@ -7,6 +7,8 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { ACTIVE as P, ACTIVE_UNIVERSE as U, shipUrl, viaHash } from "./universes.js";
+import { style3d, STAR_TEX } from "./estilos-3d.js";
+import { STYLES, findStyle, normalizeStyle } from "./estilos.js";
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const $ = (id) => document.getElementById(id);
@@ -169,27 +171,15 @@ const DOT = radialTexture(32, [
 ]);
 
 // ---------------------------------------------------------------------------
-// Mente: cérebro de partículas + mapa neural
+// Mente: o mapa (núcleo, regiões, neurônios) dentro de um "estilo" (cérebro, sistema solar, céu, placa...)
+// O estilo (estilos-3d.js) decide as posições, o cenário em volta e o desenho das conexões.
 // ---------------------------------------------------------------------------
-// centro do cérebro; a câmera começa lá dentro, logo depois do zoom no terminal
+// centro da mente; a câmera começa lá dentro, logo depois do zoom no terminal
 const HEAD = new THREE.Vector3(0, 0, 0);
 const mind = new THREE.Group();
 mind.position.copy(HEAD);
 scene.add(mind);
 
-// Forma do cérebro: dois hemisférios com dobras, cerebelo e tronco.
-// O lado da frente (testa) fica em -z.
-const HEMI = { r: [2.1, 2.6, 3.9], cx: 1.5, cy: 0.2 };
-function brainPoint(u, h) {
-  const gyri =
-    0.06 * Math.sin(u.x * 11 + u.y * 7) * Math.sin(u.z * 9 - u.y * 5) + 0.03 * Math.sin(u.z * 23 + u.x * 17);
-  let x = u.x * HEMI.r[0];
-  if (u.x * h < 0) x *= 0.62; // parede interna mais reta
-  let y = u.y * HEMI.r[1];
-  if (u.y < -0.2) y *= 0.8;
-  const z = u.z * HEMI.r[2];
-  return new THREE.Vector3(h * HEMI.cx + x * (1 + gyri), HEMI.cy + y * (1 + gyri), z * (1 + gyri));
-}
 function randomDir() {
   const z = rand() * 2 - 1;
   const a = rand() * Math.PI * 2;
@@ -197,80 +187,6 @@ function randomDir() {
   return new THREE.Vector3(r * Math.cos(a), z, r * Math.sin(a));
 }
 seed = 1234;
-const shellPts = [];
-const shellK = []; // mistura entre as duas cores do tema, por ponto
-const pushPt = (v, k) => {
-  shellPts.push(v.x, v.y, v.z);
-  shellK.push(k);
-};
-for (let i = 0; i < 26000; i++) pushPt(brainPoint(randomDir(), i % 2 ? 1 : -1), rand());
-for (let i = 0; i < 3600; i++) {
-  const u = randomDir();
-  pushPt(new THREE.Vector3(u.x * 2.1, -1.75 + u.y * 0.8 * (1 + 0.08 * Math.sin(u.y * 30)), 2.5 + u.z * 1.1), rand() * 0.5);
-}
-for (let i = 0; i < 1200; i++) {
-  const t = rand();
-  const a = rand() * Math.PI * 2;
-  pushPt(new THREE.Vector3(Math.cos(a) * 0.45, -1.4 - t * 2, 1.3 + t * 0.5 + Math.sin(a) * 0.45), rand() * 0.3);
-}
-for (let i = 0; i < 5000; i++) {
-  const u = randomDir().multiplyScalar(Math.cbrt(rand()) * 0.9);
-  pushPt(brainPoint(u, rand() < 0.5 ? 1 : -1), 1);
-}
-const shellRnd = new Float32Array(shellPts.length / 3).map(() => rand());
-const shellGeo = new THREE.BufferGeometry();
-shellGeo.setAttribute("position", new THREE.Float32BufferAttribute(shellPts, 3));
-shellGeo.setAttribute("color", new THREE.Float32BufferAttribute(new Float32Array(shellK.length * 3), 3));
-shellGeo.setAttribute("aRnd", new THREE.BufferAttribute(shellRnd, 1));
-// Pontos com brilho próprio: cintilam e são varridos por ondas de disparo sináptico
-const shellU = {
-  uTime: { value: 0 },
-  uSize: { value: 0.05 },
-  uScale: { value: 400 },
-  uOpacity: { value: 0 },
-  uDot: { value: DOT },
-  uFire: { value: new THREE.Color(0xd9fff0) },
-};
-const shellMat = new THREE.ShaderMaterial({
-  uniforms: shellU,
-  vertexShader: `
-    uniform float uTime, uSize, uScale;
-    attribute vec3 color;
-    attribute float aRnd;
-    varying vec3 vCol;
-    varying float vFire;
-    const vec3 O1 = vec3(1.6, 1.4, -2.4), O2 = vec3(-1.8, 0.4, 1.8), O3 = vec3(0.2, -1.2, 0.3);
-    float wave(vec3 p, vec3 o, float speed, float off) {
-      float r = fract(uTime * speed + off) * 9.0;
-      float d = distance(p, o) - r;
-      return exp(-d * d * 6.0) * (1.0 - r / 9.0);
-    }
-    void main() {
-      float w = wave(position, O1, 0.11, 0.0) + wave(position, O2, 0.08, 0.37) + wave(position, O3, 0.14, 0.71);
-      float spark = pow(max(0.0, sin(uTime * (0.6 + aRnd * 1.7) + aRnd * 91.0)), 60.0);
-      float twinkle = 0.7 + 0.3 * sin(uTime * (1.5 + aRnd * 3.0) + aRnd * 40.0);
-      vFire = clamp(w * 1.2 + spark, 0.0, 1.5);
-      vCol = color * twinkle;
-      vec4 mv = modelViewMatrix * vec4(position, 1.0);
-      gl_PointSize = uSize * (1.0 + vFire * 1.6) * uScale / -mv.z;
-      gl_Position = projectionMatrix * mv;
-    }`,
-  fragmentShader: `
-    uniform sampler2D uDot;
-    uniform float uOpacity;
-    uniform vec3 uFire;
-    varying vec3 vCol;
-    varying float vFire;
-    void main() {
-      float a = texture2D(uDot, gl_PointCoord).a * uOpacity;
-      vec3 c = mix(vCol, uFire, min(vFire, 1.0)) * (1.0 + vFire);
-      gl_FragColor = vec4(c * a, a);
-    }`,
-  transparent: true,
-  depthWrite: false,
-  blending: THREE.AdditiveBlending,
-});
-mind.add(new THREE.Points(shellGeo, shellMat));
 
 // Nebulosa e poeira estelar ao fundo do mapa
 const nebulaU = {
@@ -332,29 +248,21 @@ const dustMat = new THREE.PointsMaterial({
 const dust = new THREE.Points(dustGeo, dustMat);
 scene.add(dust);
 
-// Temas de cor do cérebro e do espaço (comando "theme" no terminal). As cores das áreas não mudam.
+// Temas de cor do cenário e do espaço (comando "theme" no terminal). As cores das áreas não mudam.
 const THEMES = {
   azul: { a: 0x3b82f6, b: 0x67e8f9, fire: 0xd9fff0, neb: [0x050d29, 0x0d594d, 0x40145a], dust: 0x9fdcff },
   verde: { a: 0x15803d, b: 0x86efac, fire: 0xdcffe4, neb: [0x03120a, 0x0d5a24, 0x0a3d2a], dust: 0xa7f3d0 },
   vermelho: { a: 0xdc2626, b: 0xfda4af, fire: 0xffe0e3, neb: [0x1c0508, 0x661015, 0x4a0a36], dust: 0xfecaca },
 };
 let themeName = "azul";
+let deco = null; // cenário do estilo atual
 function applyTheme(name) {
   const t = THEMES[name];
   if (!t) return false;
   themeName = name;
-  const a = new THREE.Color(t.a);
-  const b = new THREE.Color(t.b);
-  const c = new THREE.Color();
-  const col = shellGeo.attributes.color;
-  shellK.forEach((k, i) => {
-    c.copy(a).lerp(b, k);
-    col.setXYZ(i, c.r, c.g, c.b);
-  });
-  col.needsUpdate = true;
   ["uN1", "uN2", "uN3"].forEach((u, i) => nebulaU[u].value.set(t.neb[i]));
   dustMat.color.set(t.dust);
-  shellU.uFire.value.set(t.fire);
+  if (deco) deco.setTheme(t);
   document.documentElement.dataset.theme = name;
   try {
     localStorage.setItem("infome-theme", name);
@@ -397,7 +305,7 @@ function makeNode(n) {
   if (n.kind === "hub") el.style.color = n.color;
   const label = new CSS2DObject(el);
   mind.add(mesh, glow, label);
-  Object.assign(n, { mesh, glow, tag: label, el, vis: 0, links: [] });
+  Object.assign(n, { pos: new THREE.Vector3(), mesh, glow, tag: label, el, vis: 0, links: [] });
   nodes.push(n);
   byId[n.id] = n;
   return n;
@@ -408,8 +316,6 @@ const core = makeNode({
   kind: "core",
   label: P.name,
   color: "#e0f2fe",
-  pos: new THREE.Vector3(0, 0.3, 0.2),
-  r: 0.26,
   order: 0,
   detail: P.summary,
   catLabel: P.role,
@@ -420,26 +326,21 @@ P.categories.forEach((c) => {
     kind: "hub",
     label: c.label,
     color: c.color,
-    pos: new THREE.Vector3(...c.pos).multiplyScalar(1.15),
-    r: 0.16,
     order: 0.05,
     cat: c,
     catLabel: "Região",
   });
 });
-seed = 42;
 P.nodes.forEach((d) => {
   const c = catById[d.category];
   if (!c) return;
-  const hub = byId["__hub_" + c.id];
-  const pos = hub.pos.clone().add(randomDir().multiplyScalar(0.7 + rand() * 0.5));
-  makeNode({ ...d, kind: "leaf", color: c.color, pos, r: 0.085, cat: c, catLabel: c.label });
+  makeNode({ ...d, kind: "leaf", color: c.color, cat: c, catLabel: c.label });
 });
 
 // Arestas, cada uma com o "porquê" da conexão
 const edges = [];
 function addEdge(a, b, why, kind) {
-  const e = { a, b, why, kind };
+  const e = { a, b, why, kind, i: edges.length };
   edges.push(e);
   a.links.push({ other: b, why, e });
   b.links.push({ other: a, why, e });
@@ -453,81 +354,86 @@ P.links.forEach((l) => {
   const b = byId[l.to];
   if (a && b) addEdge(a, b, l.why, "link");
 });
-
-// Relaxamento de forças: espalha os neurônios sem sobreposição e dentro do cérebro
 const leaves = nodes.filter((n) => n.kind === "leaf");
-function insideBrain(p, k = 0.8) {
-  for (const h of [-1, 1]) {
-    const x = (p.x - h * HEMI.cx) / (HEMI.r[0] * k);
-    const y = (p.y - HEMI.cy) / (HEMI.r[1] * k);
-    const z = p.z / (HEMI.r[2] * k);
-    if (x * x + y * y + z * z < 1) return true;
-  }
-  return false;
-}
-{
-  const tmp = new THREE.Vector3();
-  const f = new THREE.Vector3();
-  for (let it = 0; it < 400; it++) {
-    const cool = 1 - it / 400;
-    leaves.forEach((n) => {
-      f.set(0, 0, 0);
-      nodes.forEach((m) => {
-        if (m === n) return;
-        tmp.copy(n.pos).sub(m.pos);
-        const d = tmp.length() || 0.01;
-        const min = m.kind === "leaf" ? 1.15 : 1.3;
-        if (d < min) f.add(tmp.multiplyScalar(((min - d) / d) * 0.5));
-      });
-      n.links.forEach(({ other, e }) => {
-        tmp.copy(other.pos).sub(n.pos);
-        const d = tmp.length() || 0.01;
-        const rest = e.kind === "tree" ? 1.1 : 1.8;
-        const k = e.kind === "tree" ? 0.08 : 0.02;
-        f.add(tmp.multiplyScalar(((d - rest) / d) * k));
-      });
-      if (!insideBrain(n.pos)) f.add(tmp.copy(n.pos).multiplyScalar(-0.04));
-      n.pos.add(f.multiplyScalar(cool));
-    });
-  }
-}
-const maxD = Math.max(...leaves.map((n) => n.pos.distanceTo(core.pos)));
-nodes.forEach((n) => {
-  n.mesh.position.copy(n.pos);
-  n.glow.position.copy(n.pos);
-  n.tag.position.copy(n.pos);
-  if (n.kind === "leaf") n.order = 0.15 + 0.85 * (n.pos.distanceTo(core.pos) / maxD);
-});
 
-// Geometria das arestas: curvas suaves com cor por vértice
+// Geometria das arestas: curvas com cor por vértice (a forma vem do estilo)
 const SEG = 12;
 const edgePos = new Float32Array(edges.length * SEG * 6);
 const edgeCol = new Float32Array(edges.length * SEG * 6);
-edges.forEach((e, i) => {
-  const mid = e.a.pos.clone().add(e.b.pos).multiplyScalar(0.5);
-  const ctrl = mid.clone().add(mid.clone().multiplyScalar(e.kind === "link" ? 0.18 : 0.08));
-  e.curve = new THREE.QuadraticBezierCurve3(e.a.pos, ctrl, e.b.pos);
-  const pts = e.curve.getPoints(SEG);
-  for (let s = 0; s < SEG; s++) {
-    edgePos.set([pts[s].x, pts[s].y, pts[s].z, pts[s + 1].x, pts[s + 1].y, pts[s + 1].z], (i * SEG + s) * 6);
-  }
-  e.color = new THREE.Color(e.kind === "link" ? "#94a3b8" : e.b.color);
-});
 const edgeGeo = new THREE.BufferGeometry();
 edgeGeo.setAttribute("position", new THREE.BufferAttribute(edgePos, 3));
 edgeGeo.setAttribute("color", new THREE.BufferAttribute(edgeCol, 3));
-mind.add(
-  new THREE.LineSegments(
-    edgeGeo,
-    new THREE.LineBasicMaterial({
-      vertexColors: true,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      fog: false,
-    })
-  )
+const edgeLines = new THREE.LineSegments(
+  edgeGeo,
+  new THREE.LineBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    fog: false,
+  })
 );
+edgeLines.frustumCulled = false;
+mind.add(edgeLines);
+edges.forEach((e) => (e.color = new THREE.Color(e.kind === "link" ? "#94a3b8" : e.b.color)));
+function buildEdges() {
+  edges.forEach((e, i) => {
+    e.curve = style.curve(e);
+    const pts = e.curve.getPoints(SEG);
+    for (let s = 0; s < SEG; s++) {
+      const a = pts[s];
+      const b = pts[s + 1] || a;
+      edgePos.set([a.x, a.y, a.z, b.x, b.y, b.z], (i * SEG + s) * 6);
+    }
+  });
+  edgeGeo.attributes.position.needsUpdate = true;
+}
+function placeNodes() {
+  nodes.forEach((n) => {
+    n.mesh.position.copy(n.pos);
+    n.glow.position.copy(n.pos);
+    n.tag.position.copy(n.pos);
+  });
+}
+
+// Troca de estilo (também ao vivo, pelo comando "estilo" no terminal)
+let style = null;
+let styleT = 0; // relógio das órbitas (para quando algo está em foco)
+let styleSpeed = 1;
+function setStyle(id) {
+  const next = style3d(id);
+  if (deco) {
+    mind.remove(deco.group);
+    deco.dispose();
+    deco = null;
+  }
+  style = next;
+  styleT = 0;
+  nodes.forEach((n) => {
+    n.r = style.radii[n.kind];
+    n.orb = null;
+    n.uv = null;
+  });
+  style.layout(nodes);
+  const maxD = Math.max(0.001, ...leaves.map((n) => n.pos.distanceTo(core.pos)));
+  leaves.forEach((n) => (n.order = 0.15 + 0.85 * (n.pos.distanceTo(core.pos) / maxD)));
+  placeNodes();
+  buildEdges();
+  const glowMap = style.glow === "star" ? STAR_TEX() : GLOW;
+  nodes.forEach((n) => {
+    n.mesh.visible = !(style.hideMesh && style.hideMesh(n));
+    n.glow.material.map = glowMap;
+  });
+  deco = style.build({ nodes, edges, tex: { GLOW, DOT } });
+  deco.group.renderOrder = -0.5;
+  mind.add(deco.group);
+  deco.setTheme(THEMES[themeName]);
+  mindSpin = 0;
+  mind.rotation.set(0, 0, 0);
+  document.documentElement.dataset.estilo = style.id;
+  onResize();
+  return style.id;
+}
 
 // Pulsos elétricos percorrendo as conexões
 const pulses = [];
@@ -657,7 +563,8 @@ $("exploreBtn").addEventListener("click", enterExplore);
 $("exitBtn").addEventListener("click", exitExplore);
 function overview() {
   closePanel();
-  tweenTo(mind.position.clone().add(new THREE.Vector3(0, 2.5, finalDist)), mind.position);
+  const el = Math.max(0.146, style.view.el);
+  tweenTo(mind.position.clone().add(new THREE.Vector3(0, Math.sin(el), Math.cos(el)).multiplyScalar(finalDist)), mind.position);
 }
 $("resetBtn").addEventListener("click", overview);
 window.addEventListener("keydown", (e) => {
@@ -788,6 +695,7 @@ const ENTER_SECONDS = 5.5;
 let progress = P0;
 let entered = false;
 let finalDist = 17;
+let pxScale = 400;
 const S0 = 0.022; // escala da mente no começo, com a câmera lá dentro
 const D0 = 0.34;
 
@@ -796,8 +704,8 @@ const camTarget = new THREE.Vector3();
 function scriptedCamera(p, out, outTarget) {
   const t = smooth(0.46, 0.84, p);
   const d = D0 * Math.pow(finalDist / D0, t * t);
-  const az = t * 0.7;
-  const el = lerp(0.05, 0.16, t);
+  const az = t * style.view.az;
+  const el = lerp(0.05, style.view.el, t);
   out.set(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(d).add(HEAD);
   outTarget.copy(HEAD);
 }
@@ -817,10 +725,11 @@ function onResize() {
   composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   composer.setSize(W, H);
   cinema.uniforms.uRes.value.set(W, H);
-  shellU.uScale.value = (H * Math.min(window.devicePixelRatio || 1, 2)) / 2;
+  pxScale = (H * Math.min(window.devicePixelRatio || 1, 2)) / 2;
   labelRenderer.setSize(W, H);
   const halfH = Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * aspect);
-  finalDist = Math.max(11.5, 4.6 / Math.tan(halfH) + 1.5);
+  const fit = style ? style.fit : 4.6;
+  finalDist = Math.max(11.5 * (fit / 4.6), fit / Math.tan(halfH) + 1.5);
 }
 
 window.addEventListener("resize", onResize);
@@ -859,9 +768,6 @@ function frame() {
   const grow = smooth(0.46, 0.84, p);
   const s = S0 * Math.pow(1 / S0, grow);
   mind.scale.setScalar(s);
-  shellU.uSize.value = 0.03 * s;
-  shellU.uOpacity.value = smooth(0.16, 0.36, p) * 0.6;
-  shellU.uTime.value = time;
   const space = smooth(0.52, 0.72, p);
   nebula.visible = dust.visible = space > 0.001;
   nebula.position.copy(camera.position);
@@ -870,8 +776,8 @@ function frame() {
   dustMat.opacity = space * 0.7;
   dust.rotation.y = time * 0.004;
   reveal = smooth(0.66, 0.92, p);
-  if (!exploring && !reduceMotion) mindSpin += dt * 0.06 * reveal;
-  mind.rotation.y = mindSpin;
+  if (!exploring && !reduceMotion) mindSpin += dt * (style.spinSpeed || 0.06) * reveal;
+  mind.rotation.y = style.spin === "full" ? mindSpin : style.spin === "rock" ? Math.sin(mindSpin * 2.2) * 0.28 : 0;
 
   // Câmera
   if (exploring) {
@@ -917,12 +823,22 @@ function frame() {
     focus.links.forEach((l) => related.add(l.other));
   }
 
+  // Estilos com órbitas: tudo se move, mas o que está em foco para (fica fácil de clicar e ler)
+  if (style.dynamic && !reduceMotion) {
+    styleSpeed = lerp(styleSpeed, focus ? 0 : 1, 1 - Math.exp(-3 * dt));
+    styleT += dt * styleSpeed;
+    style.animate(nodes, styleT);
+    placeNodes();
+    buildEdges();
+  }
+
   nodes.forEach((n) => {
     n.vis = visibility(n);
     const off = !!tl && n.kind === "leaf" && !tl.lit.has(n); // ainda não aprendido na linha do tempo
     const fresh = !!tl && tl.fresh.has(n);
     const dim = (!!focus && !related.has(n)) || off;
     const hot = n === focus || fresh;
+    n.hot = hot;
     const breathe = n.kind === "leaf" && !reduceMotion ? 1 + 0.12 * Math.sin(time * 2 + n.order * 20) : 1;
     n.mesh.material.opacity = n.vis * (dim ? 0.25 : 1);
     n.mesh.scale.setScalar(n.r * (0.3 + 0.7 * n.vis) * (hot ? 1.5 : 1) * breathe);
@@ -944,7 +860,7 @@ function frame() {
     const lit = (focus && (e.a === focus || e.b === focus)) || (tl && (tl.fresh.has(e.a) || tl.fresh.has(e.b)));
     const base = e.kind === "link" ? 0.3 : 0.45;
     const on = !tl || ((e.a.kind !== "leaf" || tl.lit.has(e.a)) && (e.b.kind !== "leaf" || tl.lit.has(e.b)));
-    const a = v * (lit ? 1.2 : focus || !on ? 0.05 : base);
+    const a = v * (lit ? 1.2 : focus || !on ? 0.05 : base * style.edgeAlpha[e.kind]);
     for (let k = 0; k < SEG * 2; k++) edgeCol.set([e.color.r * a, e.color.g * a, e.color.b * a], (i * SEG * 2 + k) * 3);
   });
   edgeGeo.attributes.color.needsUpdate = true;
@@ -953,7 +869,7 @@ function frame() {
   pulses.forEach((pu) => {
     if (!pu.e) {
       pu.s.material.opacity = 0;
-      if (reduceMotion || reveal < 0.4 || Math.random() > 0.04) return;
+      if (reduceMotion || reveal < 0.4 || Math.random() > 0.04 * (style.pulses || 1)) return;
       const cand = focus ? focus.links.map((l) => l.e) : edges;
       const e = cand[Math.floor(Math.random() * cand.length)];
       if (!e || Math.min(e.a.vis, e.b.vis) < 0.9) return;
@@ -976,9 +892,55 @@ function frame() {
   mapUi.classList.toggle("on", ui > 0.5);
   labelsEl.style.opacity = exploring ? 1 : smooth(0.62, 0.72, p);
 
+  deco.update({ time, dt, p, appear: smooth(0.5, 0.78, p), scale: s, pxScale });
+
   cinema.uniforms.uTime.value = time;
   composer.render(dt);
   labelRenderer.render(scene, camera);
   rendered = true;
 }
+// estilo inicial: o do perfil, ou o do endereço (index.html#u=demo-dev&estilo=solar)
+{
+  const m = /(?:^#|&)estilo=([\w-]+)/.exec(window.location.hash || "");
+  setStyle((m && findStyle(decodeURIComponent(m[1]))) || normalizeStyle(P.style));
+}
+// comando "estilo" no terminal: lista os estilos ou troca ao vivo (sem salvar)
+window.addEventListener("map:style", (e) => {
+  e.detail.styles = STYLES;
+  e.detail.current = style.id;
+  e.detail.saved = normalizeStyle(P.style);
+  if (e.detail.name) {
+    const id = findStyle(e.detail.name);
+    if (id) {
+      closePanel();
+      stopTimeline();
+      e.detail.ok = setStyle(id);
+      if (exploring) overview();
+    }
+  }
+});
 requestAnimationFrame(frame);
+
+// para testes automatizados
+window.__mapa = {
+  get style() {
+    return style.id;
+  },
+  setStyle: (id) => setStyle(id),
+  get ready() {
+    return reveal > 0.99;
+  },
+  // posição na tela de um neurônio (para clicar nele)
+  screenOf(id) {
+    const n = byId[id] || nodes.find((x) => x.label === id);
+    if (!n) return null;
+    const v = n.mesh.getWorldPosition(new THREE.Vector3()).project(camera);
+    return { x: (v.x * 0.5 + 0.5) * window.innerWidth, y: (-v.y * 0.5 + 0.5) * window.innerHeight, front: v.z < 1, id: n.id };
+  },
+  get leaves() {
+    return leaves.map((n) => n.id);
+  },
+  get panelTitle() {
+    return panel.hidden ? null : $("panelTitle").textContent;
+  },
+};

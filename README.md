@@ -20,6 +20,25 @@ Tudo que aparece no site está em [`assets/js/data.js`](assets/js/data.js):
 - `nodes`: cada item (formação, certificado, skill) vira um neurônio ligado à sua região.
 - `links`: conexões extras entre neurônios, cada uma com o motivo que aparece no painel.
 - `timeline`: etapas da linha do tempo (comando `timeline`); cada etapa acende os neurônios listados em `ids`.
+- `style`: o visual do universo (veja abaixo). O do Carlos é `"neural"`.
+
+## Estilos do universo
+
+O mesmo conteúdo (núcleo, regiões, itens e conexões) pode aparecer de cinco jeitos. Tudo continua funcionando em todos: clicar num neurônio, buscar, modo explorar, `mapa`, `timeline`, temas, conexões e rótulos.
+
+| `style` | Nome | Como fica |
+| --- | --- | --- |
+| `neural` | Mente neural | o cérebro de partículas de sempre |
+| `solar` | Sistema solar | a pessoa é a estrela, cada região é um planeta em órbita e os itens são luas |
+| `constelacao` | Constelação | estrelas numa abóbada celeste, uma constelação e uma nebulosa por região |
+| `circuito` | Placa de circuito | processador no centro, chips por região, componentes e trilhas com pulsos |
+| `atomo` | Átomo | núcleo no centro e uma órbita de elétrons por região |
+
+O estilo vem do perfil (`style`), pode ser escolhido no editor (**Criar meu universo**) e testado ao vivo no terminal com `estilo <nome>` (ou `visual`), sem salvar. Também dá para forçar pelo endereço: `index.html#u=demo-dev&estilo=solar`. Os universos de exemplo usam estilos diferentes para mostrar a variedade. O código fica em [`assets/js/estilos.js`](assets/js/estilos.js) (lista e validação) e [`assets/js/estilos-3d.js`](assets/js/estilos-3d.js) (posições, cenário e animação de cada estilo).
+
+## Multiverso e hangar
+
+Em [`multiverso.html`](multiverso.html) você pilota uma nave entre galáxias, uma por universo (com o estilo de cada uma na etiqueta). No **Hangar** (tecla `N`, botão no canto ou na primeira visita) dá para escolher entre sete naves, cada uma com prévia 3D girando, atributos e um jeito próprio de voar: Exploradora Horizonte, Caça Vespa, Cargueiro Corsário, Disco Errante, Foguete Retrô, Semente de Cristal e Asa Sombra. A troca é na hora, sem recarregar, e a escolha fica salva no navegador (`localStorage`, chave `infome-nave`). As naves são feitas só com primitivas do three.js em [`assets/js/ships.js`](assets/js/ships.js).
 
 ## Criar o seu universo
 
@@ -39,9 +58,10 @@ O leitor ([`assets/js/linkedin-pdf.js`](assets/js/linkedin-pdf.js)) separa a col
 - `index.html`: estrutura da página e interface do modo explorar.
 - `assets/css/style.css`: estilos.
 - `assets/js/terminal.js`: a abertura em terminal (script digitado, saída com os dados de `data.js` e o zoom final).
-- `assets/js/shell.js`: terminal interativo por cima do mapa (tecla `'` ou botão **Terminal**). Comandos: `help`, `whoami`, `sobre`, `formacao`, `certs`, `skills [área]`, `ls`, `cd <área>`, `mapa <termo>`, `timeline`, `theme [verde|azul|vermelho]`, `cv`, `stats`, `linkedin`, `nmap`, `multiverso`, `nave`, `criar`, `clear`, `exit`. Também guarda um pequeno desafio CTF (a flag fica em base64 em `SECRET`).
+- `assets/js/shell.js`: terminal interativo por cima do mapa (tecla `'` ou botão **Terminal**). Comandos: `help`, `whoami`, `sobre`, `formacao`, `certs`, `skills [área]`, `ls`, `cd <área>`, `mapa <termo>`, `timeline`, `theme [verde|azul|vermelho]`, `estilo [nome]`, `cv`, `stats`, `linkedin`, `nmap`, `multiverso`, `nave`, `criar`, `clear`, `exit`. Também guarda um pequeno desafio CTF (a flag fica em base64 em `SECRET`).
 - `cv.html` e `assets/cv-carlos-gabriel.pdf`: currículo gerado a partir de `data.js`, sem telefone e e-mail. Para regerar o PDF depois de editar `data.js`, sirva o site, abra `cv.html` no Chrome e use Imprimir → Salvar como PDF (A4, sem margens extras), salvando por cima de `assets/cv-carlos-gabriel.pdf`.
-- `assets/js/main.js`: cena 3D (three.js), câmera que se afasta de dentro do cérebro, mapa neural, controles de órbita, busca, painel de detalhes e a lista acessível no fim da página.
+- `assets/js/main.js`: cena 3D (three.js), câmera que se afasta de dentro da mente, mapa (no estilo escolhido), controles de órbita, busca, painel de detalhes e a lista acessível no fim da página.
+- `assets/js/estilos.js` e `assets/js/estilos-3d.js`: os estilos do universo. `assets/js/ships.js`: as naves do multiverso. `multiverso.html` e `assets/js/multiverse.js`: a cena das galáxias, o voo e o hangar.
 - `assets/vendor/three/`: three.js r169 (licença MIT) incluído no repositório, sem depender de CDN.
 - `criar.html`, `assets/css/criar.css`, `assets/js/criar.js` e `assets/js/criar-preview.js`: importação do PDF do LinkedIn, editor e prévia 3D do seu universo.
 - `assets/js/linkedin-pdf.js`: leitor do PDF do LinkedIn. `assets/js/meu-universo.js`: validação do perfil, remoção de e-mail e telefone e o `localStorage`.
