@@ -9,6 +9,8 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { UNIVERSES, universeById, mapUrl, HOME_ID, MY_UNIVERSE } from "./universes.js";
+import { SHIPS, buildShip, shipById, shipStats, loadShipId, saveShipId } from "./ships.js";
+import { styleById, normalizeStyle } from "./estilos.js";
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const $ = (id) => document.getElementById(id);
@@ -175,51 +177,6 @@ const CLOUD = canvasTex(128, (g, s) => {
     g.fillRect(0, 0, s, s);
   }
 });
-// placas do casco da nave
-const PANELS = canvasTex(
-  512,
-  (g, w, h) => {
-    const r = rng("casco");
-    g.fillStyle = "#c3cad3";
-    g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 220; i++) {
-      const x = r() * w;
-      const y = r() * h;
-      const pw = 10 + r() * 60;
-      const ph = 6 + r() * 26;
-      const v = 185 + Math.floor(r() * 40);
-      g.fillStyle = `rgb(${v},${v + 4},${v + 10})`;
-      g.fillRect(x, y, pw, ph);
-    }
-    g.strokeStyle = "rgba(60,70,85,0.35)";
-    g.lineWidth = 1;
-    for (let x = 0; x < w; x += 32) g.strokeRect(x + 0.5, 0.5, 32, h);
-    for (let y = 0; y < h; y += 24) g.strokeRect(0.5, y + 0.5, w, 24);
-  },
-  256
-);
-PANELS.wrapS = PANELS.wrapT = THREE.RepeatWrapping;
-// pás giratórias dentro dos coletores das naceles
-const VANES = canvasTex(128, (g, s) => {
-  const gr = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
-  gr.addColorStop(0, "#ffffff");
-  gr.addColorStop(0.5, "#9fdcff");
-  gr.addColorStop(1, "#2a6fd6");
-  g.fillStyle = gr;
-  g.fillRect(0, 0, s, s);
-  g.translate(s / 2, s / 2);
-  for (let i = 0; i < 6; i++) {
-    g.rotate(Math.PI / 3);
-    g.fillStyle = "rgba(10,40,120,0.55)";
-    g.beginPath();
-    g.moveTo(0, 0);
-    g.quadraticCurveTo(s * 0.25, s * 0.05, s * 0.5, s * 0.18);
-    g.lineTo(s * 0.5, s * 0.3);
-    g.quadraticCurveTo(s * 0.2, s * 0.18, 0, 0);
-    g.fill();
-  }
-});
-
 // ---------------------------------------------------------------------------
 // Fundo: nebulosa, faixa de estrelas distantes e poeira próxima
 // ---------------------------------------------------------------------------
@@ -669,7 +626,7 @@ UNIVERSES.forEach((u, idx) => {
   if (u.mine) el.classList.add("mine");
   el.innerHTML = `<span class="ul-in"><span class="ul-name">${esc(P.name)}${u.demo ? `<span class="chip-demo">exemplo</span>` : ""}${u.mine ? `<span class="chip-you">você</span>` : ""}</span><span class="ul-role">${esc(
     P.role.split(" · ")[0]
-  )}</span><span class="ul-meta">${P.nodes.length} neurônios · ${K} regiões</span></span>`;
+  )}</span><span class="ul-meta">${P.nodes.length} neurônios · ${K} regiões</span><span class="chip-style" title="Estilo do mapa: ${esc(styleById(normalizeStyle(P.style)).name)}">${styleById(normalizeStyle(P.style)).icon} ${esc(styleById(normalizeStyle(P.style)).short)}</span></span>`;
   el.title = `Ir em dobra até o universo de ${P.name}`;
   el.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -693,194 +650,41 @@ rim.position.set(0.7, -0.2, -0.9);
 scene.add(rim);
 
 // ---------------------------------------------------------------------------
-// A nave: disco, casco secundário, duas naceles em pilones, coletores azuis e defletor vermelho.
-// Frente da nave = -Z, em cima = +Y.
+// A nave, escolhida no hangar (ships.js). Cada uma voa de um jeito: velocidade, curva, turbo e câmera.
 // ---------------------------------------------------------------------------
-function buildShip() {
-  const root = new THREE.Group();
-  const hull = new THREE.Group(); // recebe a inclinação nas curvas
-  root.add(hull);
-  const hullMat = new THREE.MeshStandardMaterial({ color: 0xb4bcc6, map: PANELS, metalness: 0.4, roughness: 0.5 });
-  const darkMat = new THREE.MeshStandardMaterial({ color: 0x5d6673, metalness: 0.5, roughness: 0.5 });
-  const glowMat = (r, g, b) => new THREE.MeshBasicMaterial({ color: new THREE.Color(r, g, b), toneMapped: false });
-  const lathe = (pts, seg = 48) => new THREE.LatheGeometry(pts.map(([x, y]) => new THREE.Vector2(x, y)), seg);
-  const sprite = (color, scale, op = 1) => {
-    const s = new THREE.Sprite(
-      new THREE.SpriteMaterial({ map: GLOW, color, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending })
-    );
-    s.scale.setScalar(scale);
-    return s;
-  };
-
-  // Disco principal (seção do disco) com a ponte em cima
-  const saucer = new THREE.Mesh(
-    lathe([
-      [0, -0.17], [0.12, -0.165], [0.3, -0.125], [0.7, -0.075], [0.97, -0.03], [1.0, 0.0],
-      [0.97, 0.03], [0.85, 0.045], [0.4, 0.085], [0.2, 0.11], [0.16, 0.14], [0.11, 0.17],
-      [0.06, 0.19], [0, 0.195],
-    ].reverse(), 72),
-    hullMat
-  );
-  saucer.position.set(0, 0.34, -0.72);
-  hull.add(saucer);
-  // borda escura e cúpula da ponte
-  const rimRing = new THREE.Mesh(new THREE.TorusGeometry(0.985, 0.018, 8, 96), darkMat);
-  rimRing.rotation.x = Math.PI / 2;
-  rimRing.position.copy(saucer.position);
-  hull.add(rimRing);
-  const bridge = new THREE.Mesh(new THREE.SphereGeometry(0.075, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), hullMat);
-  bridge.position.set(0, 0.34 + 0.19, -0.72);
-  hull.add(bridge);
-  const beacon = sprite(new THREE.Color(1.5, 1.6, 2.0), 0.12);
-  beacon.position.set(0, 0.34 + 0.27, -0.72);
-  hull.add(beacon);
-
-  // janelas: pontinhos quentes na borda do disco e no casco secundário
-  const winGeo = new THREE.BoxGeometry(0.022, 0.012, 0.012);
-  const winMat = glowMat(2.2, 1.85, 1.2);
-  const windows = new THREE.InstancedMesh(winGeo, winMat, 260);
-  const m4 = new THREE.Matrix4();
-  const q = new THREE.Quaternion();
-  const sc = new THREE.Vector3(1, 1, 1);
-  let wi = 0;
-  const wr = rng("janelas");
-  [[0.965, 0.012], [0.93, -0.035], [0.6, 0.068]].forEach(([rad, y], row) => {
-    const n = row === 2 ? 50 : 80;
-    for (let i = 0; i < n && wi < 260; i++) {
-      if (wr() < 0.18) continue;
-      const a = (i / n) * Math.PI * 2;
-      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -a);
-      m4.compose(new THREE.Vector3(Math.cos(a) * rad, 0.34 + y, -0.72 + Math.sin(a) * rad), q, sc);
-      windows.setMatrixAt(wi++, m4);
-    }
-  });
-  for (let i = 0; i < 40 && wi < 260; i++) {
-    const side = i % 2 ? 1 : -1;
-    const z = -0.3 + (Math.floor(i / 2) / 20) * 1.25;
-    q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
-    m4.compose(new THREE.Vector3(side * 0.262 * (1 - Math.max(0, z - 0.4) * 0.35), -0.28, z), q, sc);
-    windows.setMatrixAt(wi++, m4);
-  }
-  windows.count = wi;
-  hull.add(windows);
-
-  // motores de impulso na traseira do disco
-  [-1, 1].forEach((s) => {
-    const imp = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.05, 0.03), glowMat(3.2, 0.5, 0.25));
-    imp.position.set(s * 0.17, 0.39, -0.72 + 0.79);
-    imp.rotation.y = s * 0.25;
-    hull.add(imp);
-  });
-
-  // pescoço ligando o disco ao casco secundário
-  const neck = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.72, 0.36), hullMat);
-  neck.position.set(0, 0.02, 0.06);
-  neck.rotation.x = -0.92;
-  hull.add(neck);
-
-  // casco secundário (deitado ao longo de Z)
-  const sec = new THREE.Mesh(
-    lathe([
-      [0, -0.95], [0.19, -0.95], [0.235, -0.85], [0.26, -0.55], [0.255, -0.1], [0.22, 0.4],
-      [0.16, 0.78], [0.1, 0.92], [0, 0.95],
-    ]),
-    hullMat
-  );
-  sec.rotation.x = Math.PI / 2;
-  sec.position.set(0, -0.3, 0.55);
-  hull.add(sec);
-  // hangar traseiro com luz suave
-  const bay = new THREE.Mesh(new THREE.CircleGeometry(0.08, 24), glowMat(0.8, 1.0, 1.4));
-  bay.position.set(0, -0.3, 0.55 + 0.951);
-  hull.add(bay);
-
-  // defletor: prato vermelho brilhante na frente do casco secundário
-  const defRing = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.03, 10, 40), darkMat);
-  defRing.position.set(0, -0.3, -0.41);
-  hull.add(defRing);
-  const dish = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.14, 40, 1, true), glowMat(4.0, 0.55, 0.3));
-  dish.rotation.x = -Math.PI / 2;
-  dish.position.set(0, -0.3, -0.45);
-  hull.add(dish);
-  const defGlow = sprite(new THREE.Color(1.0, 0.25, 0.15), 1.0, 0.9);
-  defGlow.position.set(0, -0.3, -0.55);
-  hull.add(defGlow);
-
-  // pilones e naceles
-  const caps = [];
-  const grilles = [];
-  const trails = [];
-  [-1, 1].forEach((s) => {
-    const pylon = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.92, 0.32), hullMat);
-    pylon.position.set(s * 0.42, 0.06, 1.0);
-    pylon.rotation.z = -s * 0.88;
-    hull.add(pylon);
-
-    const nac = new THREE.Mesh(
-      lathe([
-        [0, -1.05], [0.125, -1.05], [0.14, -0.9], [0.14, 0.7], [0.12, 0.92], [0.07, 1.04], [0, 1.05],
-      ], 40),
-      hullMat
-    );
-    nac.rotation.x = Math.PI / 2;
-    nac.position.set(s * 0.8, 0.42, 0.92);
-    hull.add(nac);
-
-    // coletor frontal azul, com pás girando dentro
-    const cap = new THREE.Mesh(
-      new THREE.SphereGeometry(0.128, 28, 16, 0, Math.PI * 2, 0, Math.PI / 2),
-      new THREE.MeshBasicMaterial({ map: VANES, color: new THREE.Color(1.6, 2.2, 3.6), toneMapped: false })
-    );
-    cap.rotation.x = -Math.PI / 2;
-    cap.position.set(s * 0.8, 0.42, 0.92 - 1.05);
-    hull.add(cap);
-    caps.push(cap);
-    const capGlow = sprite(new THREE.Color(0.3, 0.6, 1.4), 0.9, 0.9);
-    capGlow.position.set(s * 0.8, 0.42, 0.92 - 1.12);
-    hull.add(capGlow);
-    caps.push(capGlow);
-
-    // grades de dobra: faixas azuis na lateral interna e em cima
-    [[-s * 0.135, 0, 0.03, 0.05], [0, 0.135, 0.05, 0.03]].forEach(([dx, dy, w, h]) => {
-      const gr = new THREE.Mesh(new THREE.BoxGeometry(w, h, 1.35), glowMat(0.3, 0.75, 2.0));
-      gr.position.set(s * 0.8 + dx, 0.42 + dy, 1.0);
-      hull.add(gr);
-      grilles.push(gr);
-    });
-
-    // brilho de exaustão atrás das naceles (cresce com a potência)
-    const tr = sprite(new THREE.Color(0.35, 0.6, 1.4), 0.5, 0);
-    tr.position.set(s * 0.8, 0.42, 0.92 + 1.15);
-    hull.add(tr);
-    trails.push(tr);
-  });
-
-  // luzes de navegação: bombordo vermelho, boreste verde, piscas brancos
-  const nav = [
-    { s: sprite(new THREE.Color(2.5, 0.2, 0.2), 0.22), p: [-1.0, 0.34, -0.72], ph: 0 },
-    { s: sprite(new THREE.Color(0.2, 2.5, 0.5), 0.22), p: [1.0, 0.34, -0.72], ph: 0 },
-    { s: sprite(new THREE.Color(2.5, 2.5, 2.5), 0.25), p: [0, 0.42, 1.98], ph: 0.5 },
-  ];
-  nav.forEach((n) => {
-    n.s.position.set(...n.p);
-    hull.add(n.s);
-  });
-
-  // ponto de luz azul para "acender" o casco perto das naceles
-  const nacLight = new THREE.PointLight(0x5aa8ff, 1.2, 3.5, 2);
-  nacLight.position.set(0, 0.5, 0.8);
-  hull.add(nacLight);
-
-  return { root, hull, caps, grilles, trails, nav, defGlow, nacLight };
-}
-const ship = buildShip();
+let ship = buildShip(loadShipId());
 scene.add(ship.root);
+let MAX_SPEED = 85; // unidades/s na potência máxima
+let BOOST = 3.4;
+let TURN = 1.15; // rad/s
+let ACCEL = 1.6;
+function applySpec(spec) {
+  ({ maxSpeed: MAX_SPEED, boost: BOOST, turn: TURN, accel: ACCEL } = spec);
+}
+applySpec(ship.spec);
+// troca a nave ao vivo (sem recarregar) e guarda a escolha
+function setShip(id, save = true) {
+  const spec = shipById(id);
+  if (save) saveShipId(spec.id);
+  if (spec.id === ship.spec.id) return spec.id;
+  const old = ship;
+  ship = buildShip(spec.id);
+  ship.root.position.copy(old.root.position);
+  ship.root.quaternion.copy(old.root.quaternion);
+  ship.hull.rotation.copy(old.hull.rotation);
+  scene.remove(old.root);
+  old.dispose();
+  scene.add(ship.root);
+  applySpec(spec);
+  chaseDist = spec.chase;
+  if (!reduceMotion) flash = Math.max(flash, 0.35);
+  $("shipName").textContent = spec.name;
+  return spec.id;
+}
 
 // ---------------------------------------------------------------------------
 // Voo: teclado, mouse, câmera de perseguição e piloto automático
 // ---------------------------------------------------------------------------
-const MAX_SPEED = 85; // unidades/s na potência máxima
-const BOOST = 3.4;
 const S = {
   pos: new THREE.Vector3(0, 20, 120),
   yaw: 0,
@@ -900,7 +704,7 @@ const euler = new THREE.Euler(0, 0, 0, "YXZ");
 const fwd = new THREE.Vector3();
 const keys = new Set();
 const mouse = { steering: false, down: null, x: 0, y: 0 };
-let chaseDist = 7.5;
+let chaseDist = ship.spec.chase;
 let introT = reduceMotion ? 1 : 0;
 
 function lookAngles(from, to) {
@@ -930,6 +734,8 @@ const FLIGHT = ["KeyW", "KeyS", "KeyA", "KeyD", "KeyQ", "KeyE", "Space", "Contro
 window.addEventListener("keydown", (e) => {
   if (isTyping(e)) return;
   if (e.code === "Space" || e.code.startsWith("Arrow")) e.preventDefault();
+  if (!hangarEl.hidden) return hangarKey(e);
+  if (e.code === "KeyN") return toggleHangar(true);
   if (e.code === "KeyH" || e.key === "?") return toggleHelp();
   if (e.code === "Escape") {
     if (!helpEl.hidden) return toggleHelp(false);
@@ -1105,9 +911,9 @@ function updateFlight(dt) {
     S.throttle = clamp(S.throttle + (k("KeyW") - k("KeyS")) * dt * 0.75, -0.25, 1);
     S.boost = damp(S.boost, keys.has("ShiftLeft") || keys.has("ShiftRight") ? 1 : 0, 3, dt);
     const target = S.throttle * MAX_SPEED * (1 + (BOOST - 1) * S.boost * (S.throttle > 0 ? 1 : 0));
-    S.speed = damp(S.speed, target, 1.6, dt);
-    S.yawRate = damp(S.yawRate, yawIn * 1.15, 4, dt);
-    S.pitchRate = damp(S.pitchRate, pitchIn * 0.9, 4, dt);
+    S.speed = damp(S.speed, target, ACCEL, dt);
+    S.yawRate = damp(S.yawRate, yawIn * TURN, 4, dt);
+    S.pitchRate = damp(S.pitchRate, pitchIn * TURN * 0.78, 4, dt);
     S.yaw += S.yawRate * dt;
     S.pitch = clamp(S.pitch + S.pitchRate * dt, -1.35, 1.35);
     S.warp = damp(S.warp, S.boost * smooth(MAX_SPEED, MAX_SPEED * BOOST, S.speed) * 0.25, 3, dt);
@@ -1194,7 +1000,7 @@ let shake = 0;
 function updateCamera(dt, time) {
   const intro = smooth(0, 1, introT);
   const dist = chaseDist * (1 + S.warp * 0.35) + (1 - intro) * 38;
-  const off = new THREE.Vector3(lerp(9, 0, intro), 1.9 + (1 - intro) * 8, dist).applyQuaternion(quat);
+  const off = new THREE.Vector3(lerp(9, 0, intro), ship.spec.camY + (1 - intro) * 8, dist).applyQuaternion(quat);
   const want = S.pos.clone().add(off);
   if (S.mode === "entering") want.copy(camPos); // a câmera fica e a nave mergulha na galáxia
   const kpos = S.mode === "auto" ? 6 : 4.5;
@@ -1249,9 +1055,7 @@ listEl.innerHTML = galaxies
     (g, i) =>
       `<li><button type="button" data-i="${i}" style="--c:${g.P.categories[Math.min(2, g.P.categories.length - 1)].color}" title="Ir em dobra até o universo de ${esc(
         g.P.name
-      )}"><span class="dot"></span><span class="nm">${esc(g.P.name)}${g.u.demo ? `<span class="chip-demo">exemplo</span>` : ""}${g.u.mine ? `<span class="chip-you">você</span>` : ""}<span class="rl">${esc(
-        g.P.role.split(" · ")[0]
-      )}</span></span><span class="ds" data-ds></span></button></li>`
+      )}"><span class="dot"></span><span class="nm">${esc(g.P.name)}${g.u.demo ? `<span class="chip-demo">exemplo</span>` : ""}${g.u.mine ? `<span class="chip-you">você</span>` : ""}<span class="rl">${esc(g.P.role.split(" · ")[0])} <span class="st">· ${esc(styleById(normalizeStyle(g.P.style)).short)}</span></span></span><span class="ds" data-ds></span></button></li>`
   )
   .join("");
 const listBtns = [...listEl.querySelectorAll("button")];
@@ -1331,6 +1135,184 @@ function updateHud(dt) {
 }
 
 // ---------------------------------------------------------------------------
+// Hangar: escolha da nave, com prévia 3D girando, barras de atributos e miniaturas
+// ---------------------------------------------------------------------------
+const hangarEl = $("hangar");
+let hangar = null; // prévia 3D (criada na primeira vez que o hangar abre)
+let helpAfterHangar = false;
+let hgIdx = Math.max(0, SHIPS.findIndex((s) => s.id === ship.spec.id));
+$("shipName").textContent = ship.spec.name;
+
+function makeHangar() {
+  const cv = $("hgCanvas");
+  let r;
+  try {
+    r = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true, preserveDrawingBuffer: true });
+  } catch (e) {
+    return null;
+  }
+  r.setPixelRatio(DPR);
+  r.setClearColor(0x000000, 0);
+  r.toneMapping = THREE.ACESFilmicToneMapping;
+  r.toneMappingExposure = 1.1;
+  const sc = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+  sc.add(new THREE.AmbientLight(0x3a4a6a, 0.5));
+  const key = new THREE.DirectionalLight(0xfff1dd, 1.6);
+  key.position.set(-2, 3, 2);
+  const back = new THREE.DirectionalLight(0x6fb7ff, 1.0);
+  back.position.set(2, -0.5, -3);
+  sc.add(key, back);
+  // plataforma do hangar: anéis de luz no chão
+  const pad = new THREE.Group();
+  [1.9, 2.25].forEach((rad, i) => {
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(rad, rad + (i ? 0.02 : 0.05), 96),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(0.3, 0.8, 1.6), transparent: true, opacity: i ? 0.35 : 0.7, side: THREE.DoubleSide, toneMapped: false })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    pad.add(ring);
+  });
+  const floor = new THREE.Mesh(
+    new THREE.CircleGeometry(1.9, 64),
+    new THREE.MeshBasicMaterial({ map: GLOW, color: new THREE.Color(0.15, 0.35, 0.7), transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  pad.add(floor);
+  sc.add(pad);
+  const comp = new EffectComposer(r);
+  comp.addPass(new RenderPass(sc, cam));
+  const bl = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.75, 0.45, 0.45);
+  comp.addPass(bl);
+  comp.addPass(new OutputPass());
+  const turn = new THREE.Group();
+  sc.add(turn);
+  let model = null;
+  let w = 0;
+  let h = 0;
+  function size() {
+    const W = cv.clientWidth || 420;
+    const H = cv.clientHeight || 280;
+    if (W === w && H === h) return;
+    w = W;
+    h = H;
+    r.setSize(W, H, false);
+    comp.setSize(W, H);
+    bl.resolution.set(W / 2, H / 2);
+    cam.aspect = W / H;
+    cam.updateProjectionMatrix();
+  }
+  function show(id) {
+    if (model) {
+      turn.remove(model.root);
+      model.dispose();
+    }
+    model = buildShip(id);
+    turn.add(model.root);
+    const d = model.spec.chase * 0.95;
+    cam.position.set(d * 0.62, d * 0.34, d * 0.72);
+    pad.position.y = -0.75;
+    cam.lookAt(0, -0.1, 0);
+  }
+  const tickArgs = (time, dt) => ({ time, dt, power: 0.55 + 0.3 * Math.sin(time * 0.9), warp: 0, boost: 0, reduce: reduceMotion });
+  // miniaturas: cada nave desenhada uma vez, parada, e guardada como imagem
+  function thumbs() {
+    size();
+    const cur = model && model.spec.id;
+    SHIPS.forEach((spec) => {
+      show(spec.id);
+      turn.rotation.y = -0.5;
+      model.tick(tickArgs(1.2, 0.016));
+      comp.render();
+      const img = hangarEl.querySelector(`[data-ship="${spec.id}"] img`);
+      if (img) img.src = cv.toDataURL("image/png");
+    });
+    if (cur) show(cur);
+  }
+  return {
+    show,
+    thumbs,
+    render(dt, time) {
+      size();
+      if (!reduceMotion) turn.rotation.y += dt * 0.55;
+      model.tick(tickArgs(time, dt));
+      comp.render(dt);
+    },
+  };
+}
+
+const hgList = $("hgList");
+hgList.innerHTML = SHIPS.map(
+  (s, i) =>
+    `<li><button type="button" data-ship="${s.id}" data-i="${i}" title="${esc(s.name)}"><img alt="" width="160" height="100"><span>${esc(s.name)}</span></button></li>`
+).join("");
+const hgBtns = [...hgList.querySelectorAll("button")];
+function hangarPick(i, live = true) {
+  hgIdx = (i + SHIPS.length) % SHIPS.length;
+  const spec = SHIPS[hgIdx];
+  $("hgName").textContent = spec.name;
+  $("hgDesc").textContent = spec.desc;
+  $("hgCount").textContent = `nave ${hgIdx + 1} de ${SHIPS.length}`;
+  $("hgStats").innerHTML = shipStats(spec)
+    .map(([k, v]) => `<dt>${k}</dt><dd><i style="width:${Math.round(v * 100)}%"></i></dd>`)
+    .join("");
+  hgBtns.forEach((b, j) => b.classList.toggle("on", j === hgIdx));
+  if (hangar) hangar.show(spec.id);
+  if (live) setShip(spec.id); // troca ao vivo: a nave lá fora muda junto
+  $("hgCur").textContent = `pilotando agora: ${ship.spec.name}`;
+}
+function toggleHangar(force) {
+  const show = typeof force === "boolean" ? force : hangarEl.hidden;
+  if (show === !hangarEl.hidden) return;
+  hangarEl.hidden = !show;
+  document.body.classList.toggle("in-hangar", show);
+  if (show) {
+    toggleHelp(false);
+    keys.clear();
+    if (S.mode === "auto") cancelAuto();
+    if (!hangar) {
+      hangar = makeHangar();
+      if (hangar) {
+        hangar.thumbs();
+      }
+    }
+    hangarPick(SHIPS.findIndex((s) => s.id === ship.spec.id), false);
+    hgBtns[hgIdx].focus({ preventScroll: true });
+  } else {
+    hangarEl.querySelectorAll(":focus").forEach((el) => el.blur());
+    if (helpAfterHangar) {
+      helpAfterHangar = false;
+      toggleHelp(true);
+    }
+  }
+}
+function hangarKey(e) {
+  if (e.code === "ArrowLeft" || e.code === "KeyA") hangarPick(hgIdx - 1);
+  else if (e.code === "ArrowRight" || e.code === "KeyD") hangarPick(hgIdx + 1);
+  else if (e.code === "Escape" || e.code === "KeyN") toggleHangar(false);
+  else if (e.code === "Enter") {
+    e.preventDefault(); // Enter decola com a nave escolhida (mesmo com o foco num botão do hangar)
+    toggleHangar(false);
+  }
+}
+hgBtns.forEach((b) =>
+  b.addEventListener("click", () => {
+    const same = +b.dataset.i === hgIdx && ship.spec.id === SHIPS[hgIdx].id;
+    hangarPick(+b.dataset.i);
+    if (same) toggleHangar(false); // segundo clique na mesma nave: decola
+  })
+);
+$("hgPrev").addEventListener("click", () => hangarPick(hgIdx - 1));
+$("hgNext").addEventListener("click", () => hangarPick(hgIdx + 1));
+$("hgGo").addEventListener("click", () => toggleHangar(false));
+$("hangarClose").addEventListener("click", () => toggleHangar(false));
+$("hangarBtn").addEventListener("click", (e) => {
+  e.currentTarget.blur();
+  toggleHangar();
+});
+$("helpHangar").addEventListener("click", () => toggleHangar(true));
+
+// ---------------------------------------------------------------------------
 // Loop
 // ---------------------------------------------------------------------------
 function onResize() {
@@ -1372,22 +1354,10 @@ function frame() {
   // galáxias girando devagar
   if (!reduceMotion) galaxies.forEach((g, i) => (g.spin.rotation.y += dt * (0.012 + i * 0.002)));
 
-  // nave: coletores girando, grades pulsando, exaustão com a potência, luzes piscando
+  // nave: motores, luzes e efeitos de cada modelo
   const power = clamp(Math.abs(S.speed) / MAX_SPEED, 0, 1.5) + S.warp * 2;
-  ship.caps.forEach((c, i) => {
-    if (i % 2 === 0) c.rotation.y += dt * (2 + power * 6);
-    else c.material.opacity = 0.7 + 0.2 * Math.sin(time * 6 + i) + S.warp * 0.4;
-  });
-  ship.grilles.forEach((g) => g.material.color.setRGB(0.22 + power * 0.25, 0.6 + power * 0.35, 1.5 + power * 0.8));
-  ship.trails.forEach((tr) => {
-    tr.material.opacity = clamp(power * 0.6, 0, 1);
-    tr.scale.set(0.5 + power * 0.6, 0.5 + power * 0.6, 1);
-  });
-  ship.nav.forEach((n, i) => {
-    const on = reduceMotion ? 1 : (time + n.ph) % 1.6 < (i === 2 ? 0.08 : 0.9) ? 1 : 0.15;
-    n.s.material.opacity = on;
-  });
-  ship.defGlow.material.opacity = 0.75 + 0.15 * Math.sin(time * 2.2) + S.warp * 0.3;
+  ship.tick({ time, dt, power, warp: S.warp, boost: S.boost, reduce: reduceMotion });
+  if (!hangarEl.hidden && hangar) hangar.render(dt, time);
 
   // fundo acompanha a câmera; poeira e riscos de dobra
   sky.position.copy(camera.position);
@@ -1415,13 +1385,17 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
-// mostra os controles na primeira visita
+// na primeira visita: primeiro o hangar (escolher a nave), depois os controles
 let seen = null;
 try {
   seen = localStorage.getItem("infome-nave-ajuda");
   localStorage.setItem("infome-nave-ajuda", "1");
 } catch (e) {}
-helpEl.hidden = !!seen;
+helpEl.hidden = true;
+if (!seen) {
+  helpAfterHangar = true;
+  toggleHangar(true);
+}
 
 // para testes automatizados e curiosos no console
 window.__multiverso = {
@@ -1448,6 +1422,15 @@ window.__multiverso = {
     return nearest && { id: nearest.g.u.id, dist: nearest.dist, R: nearest.g.R, inRange: nearest.dist < nearest.g.R * ENTER_K };
   },
   universes: galaxies.map((g) => ({ id: g.u.id, name: g.P.name, demo: g.u.demo, mine: !!g.u.mine, center: g.center.toArray(), R: g.R })),
+  get ship() {
+    return ship.spec.id;
+  },
+  ships: SHIPS.map((s) => s.id),
+  setShip: (id) => setShip(id),
+  get hangarOpen() {
+    return !hangarEl.hidden;
+  },
+  openHangar: () => toggleHangar(true),
   warpTo: (id) => {
     const g = galaxies.find((x) => x.u.id === id);
     if (g) warpTo(g);

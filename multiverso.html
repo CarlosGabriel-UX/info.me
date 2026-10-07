@@ -47,6 +47,7 @@
       <p class="hud-speed-val"><span id="speedVal">0</span> <small id="speedUnit">km/s</small></p>
       <div class="hud-bar" aria-hidden="true"><i id="throttleBar"></i><b id="throttleZero"></b></div>
       <p class="hud-mini"><span id="throttleTxt">potência 0%</span><span id="boostTxt"></span></p>
+      <p class="hud-ship"><span>nave</span> <b id="shipName">—</b></p>
     </section>
 
     <p class="hud-prompt" id="prompt" hidden>
@@ -56,6 +57,7 @@
 
     <div class="hud-tools">
       <a class="btn criar" id="criarBtn" href="criar.html" title="Transforme o PDF do seu LinkedIn numa galáxia">Criar meu universo ＋</a>
+      <button class="btn" id="hangarBtn" type="button" title="Trocar de nave (N)">Hangar <kbd>N</kbd></button>
       <button class="btn" id="helpBtn" type="button" title="Controles (H)">Controles <kbd>H</kbd></button>
     </div>
   </div>
@@ -70,13 +72,41 @@
       <dt><kbd>Q</kbd> <kbd>E</kbd> · <kbd>Espaço</kbd> <kbd>Ctrl</kbd></dt><dd>subir e descer</dd>
       <dt><kbd>Shift</kbd></dt><dd>turbo</dd>
       <dt><kbd>X</kbd></dt><dd>parar a nave</dd>
+      <dt><kbd>N</kbd></dt><dd>hangar: escolher outra nave (cada uma voa de um jeito)</dd>
       <dt>clique numa galáxia</dt><dd>piloto automático em dobra até ela (ou use a lista)</dd>
       <dt><kbd>Enter</kbd></dt><dd>entrar no universo mais próximo</dd>
       <dt>roda do mouse</dt><dd>aproximar ou afastar a câmera</dd>
       <dt><kbd>Esc</kbd></dt><dd>cancelar o piloto automático</dd>
     </dl>
     <p class="mv-help-note">Galáxias marcadas como <span class="chip-demo">exemplo</span> são perfis fictícios, só para demonstração. A marcada como <span class="chip-you">você</span> é a sua, criada em <a href="criar.html">Criar meu universo</a>. Dica: <kbd>Ctrl</kbd>+<kbd>W</kbd> fecha a aba no navegador, então prefira <kbd>Q</kbd> <kbd>E</kbd> para subir e descer.</p>
-    <button class="btn primary" id="helpGo" type="button">Decolar</button>
+    <div class="mv-help-actions">
+      <button class="btn" id="helpHangar" type="button">Trocar de nave <kbd>N</kbd></button>
+      <button class="btn primary" id="helpGo" type="button">Decolar</button>
+    </div>
+  </aside>
+
+  <!-- Hangar: escolha da nave -->
+  <aside class="mv-hangar" id="hangar" aria-labelledby="hangarTitle" hidden>
+    <button class="panel-close" id="hangarClose" type="button" aria-label="Fechar">✕</button>
+    <p class="hud-k">Hangar <span class="hud-k-note">aperte N para abrir e fechar</span></p>
+    <h2 id="hangarTitle">Escolha a sua nave</h2>
+    <div class="hg-main">
+      <div class="hg-view">
+        <canvas id="hgCanvas" aria-hidden="true"></canvas>
+        <button class="hg-arrow prev" id="hgPrev" type="button" aria-label="Nave anterior">‹</button>
+        <button class="hg-arrow next" id="hgNext" type="button" aria-label="Próxima nave">›</button>
+      </div>
+      <div class="hg-info">
+        <p class="hg-count" id="hgCount"></p>
+        <h3 class="hg-name" id="hgName"></h3>
+        <p class="hg-desc" id="hgDesc"></p>
+        <dl class="hg-stats" id="hgStats"></dl>
+        <p class="hg-cur" id="hgCur"></p>
+        <button class="btn primary" id="hgGo" type="button">Decolar com esta nave</button>
+      </div>
+    </div>
+    <ul class="hg-list" id="hgList" aria-label="Naves"></ul>
+    <p class="hg-hint"><kbd>←</kbd> <kbd>→</kbd> trocam de nave · <kbd>Enter</kbd> decola · <kbd>N</kbd> ou <kbd>Esc</kbd> fecha · a escolha fica salva neste navegador</p>
   </aside>
 
   <div class="mv-fade" id="fade" aria-hidden="true"></div>
