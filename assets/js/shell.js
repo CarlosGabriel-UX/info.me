@@ -4,6 +4,7 @@
 import { ACTIVE as P, ACTIVE_UNIVERSE as U, UNIVERSES, universeById, mapUrl, shipUrl } from "./universes.js";
 import { PROFILE as OWNER } from "./data.js"; // o dono do site (o CTF manda print para ele)
 import { track, totalVisits } from "./analytics.js";
+import { STYLES, styleById } from "./estilos.js";
 
 const $ = (id) => document.getElementById(id);
 const root = $("shell");
@@ -181,6 +182,33 @@ const COMMANDS = {
       return detail.ok ? `<span class="ok">tema ${esc(detail.name)} aplicado</span>` : err(`tema não encontrado: ${esc(a[0])}`);
     },
   },
+  estilo: {
+    args: "[nome]",
+    desc: "muda o visual: neural, solar, constelação...",
+    run: (a) => {
+      const detail = { name: a.length ? a.join(" ") : null, ok: null };
+      window.dispatchEvent(new CustomEvent("map:style", { detail }));
+      if (!detail.styles) return err("o mapa ainda não carregou");
+      if (!a.length)
+        return [
+          `<span class="h">estilos do universo</span>`,
+          ...detail.styles.map(
+            (st) =>
+              `  <span class="ok">${esc(pad(st.id, 13))}</span><span class="v">${st.icon} ${esc(st.name)}</span> <span class="m">· ${esc(st.desc)}</span>${
+                st.id === detail.current ? ` <span class="hi">← atual</span>` : ""
+              }`
+          ),
+          ``,
+          `<span class="m">use</span> <span class="ok">estilo &lt;nome&gt;</span> <span class="m">para trocar agora (só nesta visita, nada é salvo).</span>`,
+          `<span class="m">o estilo deste universo é</span> <span class="hi">${esc(styleById(detail.saved).name)}</span>${
+            U.mine ? `<span class="m">; para mudar de vez, use</span> <span class="ok">criar</span><span class="m">.</span>` : ""
+          }`,
+        ].join("\n");
+      if (!detail.ok) return err(`estilo não encontrado: ${esc(a.join(" "))}. digite estilo para ver a lista.`);
+      const st = styleById(detail.ok);
+      return `<span class="ok">→</span> <span class="m">o universo agora aparece como</span> <span class="hi">${st.icon} ${esc(st.name)}</span> <span class="m">(só nesta visita)</span>`;
+    },
+  },
   cv: {
     desc: "baixa meu currículo em PDF",
     run: () => {
@@ -301,7 +329,7 @@ const COMMANDS = {
   clear: { desc: "limpa a tela", run: () => (out.innerHTML = "", null) },
   exit: { desc: "fecha o terminal", run: () => (close(), null) },
 };
-const ALIASES = { create: "criar", editar: "criar", "meu-universo": "criar", ship: "nave", multiverse: "multiverso", universos: "multiverso", curriculo: "cv", "currículo": "cv", tema: "theme", dica: "hint",  "?": "help", ajuda: "help", "formação": "formacao", certificados: "certs", resumo: "sobre", cls: "clear", sair: "exit" };
+const ALIASES = { create: "criar", editar: "criar", "meu-universo": "criar", ship: "nave", multiverse: "multiverso", universos: "multiverso", curriculo: "cv", "currículo": "cv", tema: "theme", visual: "estilo", style: "estilo", estilos: "estilo", aparencia: "estilo", "aparência": "estilo", dica: "hint",  "?": "help", ajuda: "help", "formação": "formacao", certificados: "certs", resumo: "sobre", cls: "clear", sair: "exit" };
 
 function focusMap(q) {
   if (!q) {
@@ -341,7 +369,7 @@ function exec(line) {
   const cmd = COMMANDS[name];
   // conta só o nome do comando (e a área ou tema escolhido), nunca o texto livre digitado
   const known = cmd ? name : "desconhecido";
-  const arg = cmd && ["cd", "skills", "theme", "mapa"].includes(name) && args[0] ? "/" + args[0] : "";
+  const arg = cmd && ["cd", "skills", "theme", "mapa", "estilo"].includes(name) && args[0] ? "/" + args[0] : "";
   track(`cmd/${known}${arg}`, `terminal: ${known}`);
   const res = cmd ? cmd.run(args) : err(`comando não encontrado: ${esc(raw)}. digite <span class="ok">help</span>.`);
   if (res) print(res, "res");
@@ -354,6 +382,11 @@ function complete() {
     const [c, a = ""] = v.split(/\s+/);
     if (["cd", "skills"].includes(c)) {
       const m = cats.filter((x) => x.id.startsWith(norm(a)));
+      if (m.length === 1) input.value = `${c} ${m[0].id}`;
+      else if (m.length > 1) print(m.map((x) => x.id).join("  "), "res m");
+    }
+    if (["estilo", "visual"].includes(c)) {
+      const m = STYLES.filter((x) => x.id.startsWith(norm(a)));
       if (m.length === 1) input.value = `${c} ${m[0].id}`;
       else if (m.length > 1) print(m.map((x) => x.id).join("  "), "res m");
     }

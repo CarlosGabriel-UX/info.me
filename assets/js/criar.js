@@ -5,6 +5,7 @@ import {
   normalizeProfile, loadMine, saveMine, deleteMine, savedAt, uniqueId, regionPos, hasContacts, cleanLinkedin, PALETTE, MY_ID,
 } from "./meu-universo.js";
 import { createPreview } from "./criar-preview.js";
+import { STYLES, normalizeStyle, styleById } from "./estilos.js";
 import { track } from "./analytics.js";
 
 const $ = (id) => document.getElementById(id);
@@ -221,7 +222,7 @@ function refresh(now) {
   const run = () => {
     const view = normalizeProfile(P);
     if (preview) preview.update(view);
-    $("pvStats").textContent = `${view.nodes.length} neurônios · ${view.links.length} sinapses · ${view.categories.length} regiões`;
+    $("pvStats").textContent = `${styleById(view.style).name} · ${view.nodes.length} neurônios · ${view.links.length} sinapses · ${view.categories.length} regiões`;
     $("cCount").textContent = `${P.categories.length} regiões · ${P.nodes.length} neurônios`;
     $("lCount").textContent = `${P.links.length}`;
   };
@@ -238,7 +239,56 @@ function changed(structural) {
 const F = { fName: "name", fFull: "fullName", fRole: "role", fLoc: "location", fLi: "linkedin", fSum: "summary" };
 function fillProfile() {
   for (const [id, k] of Object.entries(F)) $(id).value = P[k] || "";
+  markStyle();
 }
+
+// ---- estilo (cérebro, sistema solar, constelação, placa de circuito, átomo) ----
+// ícones simples em SVG, um por estilo
+const STYLE_ICONS = {
+  neural: `<circle cx="32" cy="30" r="5"/><circle cx="14" cy="18" r="3"/><circle cx="50" cy="16" r="3"/><circle cx="12" cy="44" r="3"/><circle cx="52" cy="44" r="3"/><circle cx="32" cy="54" r="3"/><path d="M32 30 14 18M32 30 50 16M32 30 12 44M32 30 52 44M32 30 32 54M14 18 50 16M12 44 32 54" opacity=".6"/><path d="M8 30c0-14 10-24 24-24s24 10 24 24-10 26-24 26S8 44 8 30z" opacity=".35" stroke-dasharray="2 3"/>`,
+  solar: `<circle cx="32" cy="32" r="6" fill="currentColor"/><ellipse cx="32" cy="32" rx="15" ry="7" opacity=".6"/><ellipse cx="32" cy="32" rx="26" ry="13" opacity=".6"/><circle cx="47" cy="32" r="3" fill="currentColor"/><circle cx="12" cy="38" r="4"/><circle cx="8" cy="42" r="1.5" fill="currentColor"/>`,
+  constelacao: `<path d="M10 44 22 30 34 36 46 18 56 26M34 36 40 52" opacity=".7"/><g fill="currentColor"><circle cx="10" cy="44" r="2"/><circle cx="22" cy="30" r="2.5"/><circle cx="34" cy="36" r="2"/><circle cx="46" cy="18" r="3"/><circle cx="56" cy="26" r="2"/><circle cx="40" cy="52" r="2"/></g><circle cx="46" cy="18" r="9" opacity=".25"/>`,
+  circuito: `<rect x="22" y="22" width="20" height="20" rx="2"/><rect x="27" y="27" width="10" height="10" fill="currentColor" opacity=".5"/><path d="M26 22v-8M32 22V8M38 22v-8M26 42v8M38 42v8l6 6M22 28h-8l-6-6M42 32h14M22 36H8"/><g fill="currentColor"><circle cx="8" cy="22" r="2"/><circle cx="56" cy="32" r="2"/><circle cx="44" cy="56" r="2"/><circle cx="32" cy="8" r="2"/></g>`,
+  atomo: `<circle cx="32" cy="32" r="4" fill="currentColor"/><ellipse cx="32" cy="32" rx="24" ry="9"/><ellipse cx="32" cy="32" rx="24" ry="9" transform="rotate(60 32 32)"/><ellipse cx="32" cy="32" rx="24" ry="9" transform="rotate(-60 32 32)"/><circle cx="56" cy="32" r="2.5" fill="currentColor"/>`,
+};
+const stylesEl = $("styles");
+stylesEl.innerHTML = STYLES.map(
+  (st) =>
+    `<button type="button" class="style-card" role="radio" aria-checked="false" data-style="${st.id}"><svg viewBox="0 0 64 64" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">${
+      STYLE_ICONS[st.id] || ""
+    }</svg><span class="sc-name">${esc(st.name)}</span><span class="sc-desc">${esc(st.desc)}</span></button>`
+).join("");
+function markStyle() {
+  const cur = normalizeStyle(P && P.style);
+  stylesEl.querySelectorAll("[data-style]").forEach((b) => {
+    const on = b.dataset.style === cur;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-checked", on ? "true" : "false");
+    b.tabIndex = on ? 0 : -1;
+  });
+  $("sCur").textContent = styleById(cur).name;
+}
+function pickStyle(id) {
+  if (!P || normalizeStyle(P.style) === id) return;
+  P.style = id;
+  markStyle();
+  changed(false);
+  refresh(true);
+  track(`criar/estilo/${id}`, `estilo ${id}`);
+}
+stylesEl.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-style]");
+  if (b) pickStyle(b.dataset.style);
+});
+// setas do teclado dentro do grupo, como num radio
+stylesEl.addEventListener("keydown", (e) => {
+  if (!["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"].includes(e.key)) return;
+  e.preventDefault();
+  const i = STYLES.findIndex((s) => s.id === normalizeStyle(P.style));
+  const next = STYLES[(i + (e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : -1) + STYLES.length) % STYLES.length].id;
+  pickStyle(next);
+  stylesEl.querySelector(`[data-style="${next}"]`).focus();
+});
 for (const [id, k] of Object.entries(F)) {
   $(id).addEventListener("input", (e) => {
     P[k] = e.target.value;

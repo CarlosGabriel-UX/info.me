@@ -21,6 +21,7 @@ const cats = (list) => list.map(([id, label, color], i) => ({ id, label, color, 
 const N = (category, items) => items.map(([id, label, detail, status]) => ({ id, label, category, detail, status }));
 
 const DEV = {
+  style: "circuito", // estilo visual do universo (estilos.js)
   name: "Rafa Vetor",
   fullName: "Rafa Vetor (perfil de exemplo)",
   role: "Dev Full Stack · Web, APIs & Nuvem",
@@ -109,6 +110,7 @@ const DEV = {
 };
 
 const DESIGN = {
+  style: "constelacao", // estilo visual do universo (estilos.js)
   name: "Bia Paleta",
   fullName: "Bia Paleta (perfil de exemplo)",
   role: "Product Designer · UX, UI & Design Systems",
@@ -191,6 +193,7 @@ const DESIGN = {
 };
 
 const DATA = {
+  style: "solar", // estilo visual do universo (estilos.js)
   name: "Duda Dados",
   fullName: "Duda Dados (perfil de exemplo)",
   role: "Cientista de Dados · Estatística, ML & Visualização",
@@ -273,6 +276,7 @@ const DATA = {
 };
 
 const GAMEDEV = {
+  style: "atomo", // estilo visual do universo (estilos.js)
   name: "Teo Pixel",
   fullName: "Teo Pixel (perfil de exemplo)",
   role: "Game Dev · Gameplay, Shaders & Áudio",
