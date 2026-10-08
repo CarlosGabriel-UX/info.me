@@ -47,7 +47,7 @@ const COMMANDS = {
         `<span class="h">comandos disponíveis</span>`,
         ...Object.entries(COMMANDS)
           .filter(([, c]) => c.desc)
-          .map(([k, c]) => `  <span class="ok">${esc(pad(k + (c.args ? " " + c.args : ""), 22))}</span><span class="m">${esc(c.desc)}</span>`),
+          .map(([k, c]) => `  <span class="ok">${esc(pad(k + (c.args ? " " + c.args : ""), 29))}</span><span class="m">${esc(c.desc)}</span>`),
         ``,
         `<span class="m">dica: Tab completa, ↑ ↓ repetem comandos, Esc fecha.</span>`,
         `<span class="m">voe entre universos com</span> <span class="ok">nave</span><span class="m">, e crie o seu com</span> <span class="ok">criar</span><span class="m">.</span>`,
@@ -66,7 +66,7 @@ const COMMANDS = {
         ...(U.demo ? [kv("universo", `<span class="y">exemplo · perfil fictício</span>`)] : []),
       ].join("\n"),
   },
-  sobre: { desc: "resumo profissional", run: () => `<span class="v">${esc(P.summary)}</span>` },
+  sobre: { desc: "resumo profissional", run: () => (P.summary ? `<span class="v">${esc(P.summary)}</span>` : "") },
   formacao: {
     desc: "cursos em andamento",
     run: () => byCat("formacao").map((n) => item("▸", "b", n)).join("\n"),
@@ -163,6 +163,8 @@ const COMMANDS = {
         window.dispatchEvent(new CustomEvent("map:timeline", { detail: { stop: true } }));
         return `<span class="m">linha do tempo parada</span>`;
       }
+      if (!P.timeline || !P.timeline.length)
+        return err(U.mine ? "seu universo ainda não tem linha do tempo. monte a sua no editor (comando criar)." : "este universo não tem linha do tempo.");
       print(`<span class="m">acendendo os neurônios na ordem em que aprendi. Esc duas vezes para parar.</span>`, "res");
       window.dispatchEvent(new CustomEvent("map:timeline", { detail: {} }));
       return null;
@@ -372,7 +374,8 @@ function exec(line) {
   const arg = cmd && ["cd", "skills", "theme", "mapa", "estilo"].includes(name) && args[0] ? "/" + args[0] : "";
   track(`cmd/${known}${arg}`, `terminal: ${known}`);
   const res = cmd ? cmd.run(args) : err(`comando não encontrado: ${esc(raw)}. digite <span class="ok">help</span>.`);
-  if (res) print(res, "res");
+  if (res === "") print(`<span class="m">(nada aqui ainda)</span>`, "res");
+  else if (res) print(res, "res");
 }
 
 function complete() {

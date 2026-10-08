@@ -655,14 +655,18 @@ function pick(ev) {
   pointer.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(pointer, camera);
   let best = null;
-  let bestD = Infinity;
+  let bestScore = Infinity;
   nodes.forEach((n) => {
+    if (n.vis < 0.5) return;
     n.mesh.getWorldPosition(tmpV);
     const camD = camera.position.distanceTo(tmpV);
     // raio de acerto generoso, com um mínimo em pixels aproximado pela distância
     const rad = Math.max(n.mesh.getWorldScale(tmpS).x * 2.2, camD * 0.018);
-    if (raycaster.ray.distanceSqToPoint(tmpV) < rad * rad && camD < bestD) {
-      bestD = camD;
+    const off = Math.sqrt(raycaster.ray.distanceSqToPoint(tmpV)) / rad;
+    // vence o neurônio cujo centro está mais perto do ponteiro (relativo ao tamanho dele):
+    // assim uma lua ao lado do planeta, ou uma folha na frente da região, é clicável
+    if (off < 1 && off < bestScore) {
+      bestScore = off;
       best = n;
     }
   });
@@ -747,6 +751,51 @@ function visibility(n) {
   if (n.kind === "core") return smooth(0, 0.12, reveal);
   if (n.kind === "hub") return smooth(0.04, 0.22, reveal);
   return smooth(n.order - 0.15, n.order, reveal);
+}
+
+// Rótulos que se sobrepõem na tela: ficam os mais importantes (centro, o que está em foco,
+// regiões) e os mais próximos da câmera; os outros somem até haver espaço para eles.
+const LABEL_DY = { core: -34, hub: 22, leaf: 14 };
+const labelBoxes = [];
+function declutter() {
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  const cand = [];
+  nodes.forEach((n) => {
+    const was = n.shown;
+    n.shown = false;
+    if (!n.tag.visible || n.alpha < 0.03) return;
+    if (!n.w) {
+      n.w = n.el.firstChild.offsetWidth * 1.08; // folga para o negrito do destaque
+      n.h = n.el.firstChild.offsetHeight;
+      if (!n.w) return;
+    }
+    n.mesh.getWorldPosition(tmpV);
+    const d = camera.position.distanceTo(tmpV);
+    tmpV.project(camera);
+    if (tmpV.z > 1) return;
+    n.sx = (tmpV.x * 0.5 + 0.5) * W;
+    n.sy = (-tmpV.y * 0.5 + 0.5) * H + LABEL_DY[n.kind];
+    const tier = n.kind === "core" || n.hot ? 0 : n.lblLit ? 1 : n.lblDim ? 4 : n.kind === "hub" ? 2 : 3;
+    // quem já estava visível tem preferência, para os rótulos não piscarem enquanto tudo gira
+    n.rank = tier * 1e6 + d * (was ? 0.75 : 1);
+    cand.push(n);
+  });
+  cand.sort((a, b) => a.rank - b.rank);
+  labelBoxes.length = 0;
+  cand.forEach((n) => {
+    const x0 = n.sx - n.w / 2 - 3;
+    const x1 = n.sx + n.w / 2 + 3;
+    const y0 = n.sy - n.h / 2 - 1;
+    const y1 = n.sy + n.h / 2 + 1;
+    for (const b of labelBoxes) if (x0 < b[2] && x1 > b[0] && y0 < b[3] && y1 > b[1]) return;
+    labelBoxes.push([x0, y0, x1, y1]);
+    n.shown = true;
+  });
+  nodes.forEach((n) => {
+    n.el.style.opacity = (n.shown ? n.alpha : 0).toFixed(2);
+    n.el.classList.toggle("cull", !n.shown);
+  });
 }
 
 function frame() {
@@ -850,10 +899,13 @@ function frame() {
     const camD = camera.position.distanceTo(tmpV);
     const near = n.kind === "leaf" ? clamp(1.9 - camD / (finalDist * 0.8), 0.25, 1) : 1;
     n.tag.visible = n.vis > 0.05;
-    n.el.style.opacity = (n.vis * (off ? 0.12 : fresh || related.has(n) ? 1 : near)).toFixed(2);
+    n.alpha = n.vis * (off ? 0.12 : fresh || related.has(n) ? 1 : near);
+    n.lblDim = dim;
+    n.lblLit = (!!focus && related.has(n)) || fresh;
     n.el.classList.toggle("dim", dim);
-    n.el.classList.toggle("hot", (!!focus && related.has(n)) || fresh);
+    n.el.classList.toggle("hot", n.lblLit);
   });
+  declutter();
 
   edges.forEach((e, i) => {
     const v = Math.min(e.a.vis, e.b.vis);
