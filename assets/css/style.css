@@ -87,6 +87,7 @@ body.exploring #gl:active { cursor: grabbing; }
 }
 .node-label.core span { transform: translateY(-34px); }
 .node-label.dim { opacity: 0.15 !important; }
+.node-label.cull { opacity: 0 !important; }
 .node-label.hot { color: #fff; font-weight: 700; }
 @media (max-width: 640px) {
   .node-label.leaf { display: none; }
